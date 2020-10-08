@@ -21,26 +21,32 @@ import abc
 import functools
 import itertools
 
+import boltons.typeutils
 import pydantic
-from pydantic import BaseModel, validator
 
 from . import typing
-from .types import PositiveInt, Str, StrEnum
+from .type_definitions import IntEnum, PositiveInt, Str, StrEnum
 from .typing import (
     Any,
     AnyNoArgCallable,
     ClassVar,
     Dict,
+    Final,
     Generator,
     List,
     Optional,
+    Set,
     Tuple,
     Type,
     TypedDict,
+    TypeVar,
     Union,
-    no_type_check,
 )
-from .utils import NOTHING
+
+
+#: Marker value used to avoid confusion with `None`
+#: (specially in contexts where `None` could be a valid value)
+NOTHING = boltons.typeutils.make_sentinel(name="NOTHING", var_name="NOTHING")
 
 
 class FieldKind(StrEnum):
@@ -101,12 +107,12 @@ class FrozenModelConfig(BaseModelConfig):
     allow_mutation = False
 
 
-class Model(BaseModel):
+class Model(pydantic.BaseModel):
     class Config(BaseModelConfig):
         pass
 
 
-class FrozenModel(BaseModel):
+class FrozenModel(pydantic.BaseModel):
     class Config(FrozenModelConfig):
         pass
 
@@ -117,12 +123,13 @@ _EVE_NODE_ATTR_SUFFIX = "_attr_"
 
 
 class Trait(abc.ABC):
+    REGISTRY: Final[Dict[str, Type["Trait"]]] = {}
+    name: ClassVar[str]
+
     @classmethod
     def __init_subclass__(cls, **kwargs: Any) -> None:
         assert hasattr(cls, "name") and isinstance(cls.name, str)
-        Trait.REGISTRY[cls.name] = cls  # type: ignore
-
-    name: ClassVar[str]
+        Trait.REGISTRY[cls.name] = cls
 
     @classmethod
     @abc.abstractmethod
@@ -143,7 +150,7 @@ Trait.REGISTRY: Dict[str, Trait] = {}  # type: ignore
 
 
 class NodeMetaclass(pydantic.main.ModelMetaclass):
-    @no_type_check
+    @typing.no_type_check
     def __new__(mcs, name, bases, namespace, **kwargs):
         # Apply traits to the namespace and the class
         trait_names: List[Type[Trait]] = kwargs.pop("traits", [])
@@ -170,7 +177,13 @@ class NodeMetaclass(pydantic.main.ModelMetaclass):
         return cls
 
 
-class BaseNode(BaseModel, metaclass=NodeMetaclass):
+AnyNode = TypeVar("AnyNode", bound="BaseNode")
+AnyNodeLeaf = Union[bool, bytes, int, float, str, IntEnum, StrEnum, AnyNode]
+AnyNodeCollection = Union[List[AnyNode], Dict[Any, AnyNodeLeaf], Set[AnyNode]]
+AnyNodeTree = Union[AnyNodeLeaf, AnyNodeCollection]
+
+
+class BaseNode(pydantic.BaseModel, metaclass=NodeMetaclass):
     """Base class representing an IR node.
 
     Field values should be either:
@@ -187,14 +200,14 @@ class BaseNode(BaseModel, metaclass=NodeMetaclass):
     not children.
     """
 
-    # __metadata__: NodeMetadataDict
+    __metadata__: NodeMetadataDict
 
     # Node fields
     #: Unique node-id (meta-attribute)
     id_attr_: Optional[Str] = None
 
-    @validator("id_attr_", pre=True, always=True)
-    def _id_attr_validator(cls: Type["BaseNode"], v: Optional[str]) -> str:  # type: ignore
+    @pydantic.validator("id_attr_", pre=True, always=True)
+    def _id_attr_validator(cls: Type[AnyNode], v: Optional[str]) -> str:  # type: ignore  # validators are classmethods
         if v is None:
             v = UIDGenerator.get_unique_id(prefix=cls.__qualname__)
         if not isinstance(v, str):
@@ -211,12 +224,11 @@ class BaseNode(BaseModel, metaclass=NodeMetaclass):
             if not (name.endswith(_EVE_NODE_ATTR_SUFFIX) or name.endswith(_EVE_NODE_IMPL_SUFFIX)):
                 yield name, getattr(self, name)
 
-    # todo(egparedes): disable since unused for now
-    # def select(self, *, kind: Optional[FieldKind] = None) -> Generator[Tuple[str, Any], None, None]:
-    #    for name, _ in self.__fields__.items():
-    #        if not (name.endswith(_EVE_NODE_ATTR_SUFFIX) or name.endswith(_EVE_NODE_IMPL_SUFFIX)):
-    #            if kind and self.__metadata__.get("kind", None) == kind:
-    #                yield name, getattr(self, name)
+    def select(self, *, kind: Optional[FieldKind] = None) -> Generator[Tuple[str, Any], None, None]:
+        for name, _ in self.__fields__.items():
+            if not (name.endswith(_EVE_NODE_ATTR_SUFFIX) or name.endswith(_EVE_NODE_IMPL_SUFFIX)):
+                if kind and self.__metadata__.get("kind", None) == kind:
+                    yield name, getattr(self, name)
 
     class Config(BaseModelConfig):
         pass
@@ -231,6 +243,43 @@ class FrozenNode(Node):
 
     class Config(FrozenModelConfig):
         pass
+
+
+AnyNodeClasses = (bool, bytes, int, float, str, IntEnum, StrEnum, Node, list, dict, set)
+
+
+class VType(FrozenModel):
+
+    # VType fields
+    #: Unique name
+    name: Str
+
+    def __init__(self, name: str) -> None:
+        super().__init__(name=name)
+
+
+# class Module:
+#     # root
+
+
+# class Program:
+#     # modules: List[Module]
+#     # dialects ?
+
+
+class SourceLocation(FrozenModel):
+    """Source code location (line, column, source)."""
+
+    line: PositiveInt
+    column: PositiveInt
+    source: Str
+
+    def __init__(self, line: int, column: int, source: str) -> None:
+        super().__init__(line=line, column=column, source=source)
+
+    def __str__(self) -> str:
+        src = self.source or ""
+        return f"<{src}: Line {self.line}, Col {self.column}>"
 
 
 class UIDGenerator:
@@ -249,37 +298,3 @@ class UIDGenerator:
     def reset(cls, start: int = 1) -> None:
         """Reset generator."""
         cls.__counter = itertools.count(start)
-
-
-class SourceLocation(Model):
-    """Source code location (line, column, source)."""
-
-    line: PositiveInt
-    column: PositiveInt
-    source: Str
-
-    def __str__(self) -> str:
-        src = self.source or ""
-        return f"<{src}: Line {self.line}, Col {self.column}>"
-
-
-class VType(Model):
-
-    # VType fields
-    #: Unique name
-    name: Str
-
-    def __init__(self, name: str) -> None:  # type: ignore
-        super().__init__(name=name)  # type: ignore
-
-    class Config(BaseModelConfig):
-        pass
-
-
-# class Module:
-#     # root
-
-
-# class Program:
-#     # modules: List[Module]
-#     # dialects ?
