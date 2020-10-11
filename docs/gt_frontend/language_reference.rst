@@ -21,6 +21,8 @@ For global weather models (e.g. `IFS-FVM <https://refubium.fu-berlin.de/bitstrea
 Concepts
 ========
 
+This section is WIP and will be moved to the concepts repo when it matured.
+
 **Location**
 
 A bounded set with nonempty interior. We differentiate between horizontal locations, i.e. :code:`Cell`, :code:`Edge`, :code:`Vertex` and vertical locations, i.e. a layer. Each location can be attributed to a domain dimesion.
@@ -43,6 +45,8 @@ A field defined in the neighbourhood of a cell.
 **Neighbourhood chain**
 
 Used to select direct or indirect neighbours of a cell. See here https://docs.google.com/document/d/1nQZzKGi7Go9R3fme78ViB_PrQDVPxy4xTzSuGh_yJAI/edit for a description.
+
+Todo: properly define concept and add illustrations.
 
 **Primary location**
 
