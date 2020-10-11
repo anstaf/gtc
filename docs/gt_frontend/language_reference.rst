@@ -171,7 +171,7 @@ GTScript only supports the following limited set of types. All variables are req
    * - :code:`Field[[*DIMS], V]`
      - A mapping between locations with their attributed dimensions :code:`DIMS` and quantaties of type :code:`V` at this location.
    * - :code:`Mesh`
-     - A discrete reprenstation of the computational domain, passed as first argument to the stencil call.
+     - A discrete representation of the computational domain (passed as first argument to the stencil call).
    * - :code:`LocationType`
      - The type of a location, i.e. :code:`Cell`, :code:`Edge`, :code:`Vertex`.
    * - :code:`Location[T]`
