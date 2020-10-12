@@ -67,7 +67,7 @@ class FieldMetadataDict(TypedDict, total=False):
 NodeMetadataDict = Dict[str, FieldMetadataDict]
 
 
-_EVE_METADATA_KEY = "__eve_meta"
+_EVE_METADATA_KEY = "_EVE_META_"
 
 
 def field(
@@ -117,11 +117,6 @@ class FrozenModel(pydantic.BaseModel):
         pass
 
 
-_EVE_NODE_IMPL_SUFFIX = "_"
-
-_EVE_NODE_ATTR_SUFFIX = "_attr_"
-
-
 class Trait(abc.ABC):
     REGISTRY: Final[Dict[str, Type["Trait"]]] = {}
     name: ClassVar[str]
@@ -146,7 +141,9 @@ class Trait(abc.ABC):
         ...
 
 
-Trait.REGISTRY: Dict[str, Trait] = {}  # type: ignore
+_EVE_NODE_IMPL_SUFFIX = "_"
+
+_EVE_NODE_ATTR_SUFFIX = "_attr_"
 
 
 class NodeMetaclass(pydantic.main.ModelMetaclass):
@@ -171,8 +168,8 @@ class NodeMetaclass(pydantic.main.ModelMetaclass):
             if not (name.endswith(_EVE_NODE_ATTR_SUFFIX) or name.endswith(_EVE_NODE_IMPL_SUFFIX)):
                 fields_metadata[name] = field.field_info.extra.get(_EVE_METADATA_KEY, {})
 
-        cls.__eve_metadata__ = fields_metadata
-        cls.__eve_traits__ = trait_names
+        cls.__node_metadata__ = fields_metadata
+        cls.__node_traits__ = trait_names
 
         return cls
 
@@ -200,7 +197,7 @@ class BaseNode(pydantic.BaseModel, metaclass=NodeMetaclass):
     not children.
     """
 
-    __metadata__: NodeMetadataDict
+    __node_metadata__: NodeMetadataDict
 
     # Node fields
     #: Unique node-id (meta-attribute)
@@ -227,7 +224,7 @@ class BaseNode(pydantic.BaseModel, metaclass=NodeMetaclass):
     def select(self, *, kind: Optional[FieldKind] = None) -> Generator[Tuple[str, Any], None, None]:
         for name, _ in self.__fields__.items():
             if not (name.endswith(_EVE_NODE_ATTR_SUFFIX) or name.endswith(_EVE_NODE_IMPL_SUFFIX)):
-                if kind and self.__metadata__.get("kind", None) == kind:
+                if kind and self.__node_metadata__.get("kind", None) == kind:
                     yield name, getattr(self, name)
 
     class Config(BaseModelConfig):
