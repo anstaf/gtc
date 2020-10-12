@@ -61,7 +61,7 @@ class NodeVisitor:
 
     ATOMIC_COLLECTION_TYPES: ClassVar[Tuple[Type, ...]] = (str, bytes, bytearray)
 
-    def visit(self, node: concepts.AnyNodeTree, **kwargs: Any) -> Any:
+    def visit(self, node: concepts.TreeNode, **kwargs: Any) -> Any:
         visitor = self.generic_visit
 
         method_name = "visit_" + node.__class__.__name__
@@ -79,7 +79,7 @@ class NodeVisitor:
 
         return visitor(node, **kwargs)
 
-    def generic_visit(self, node: concepts.AnyNodeTree, **kwargs: Any) -> Any:
+    def generic_visit(self, node: concepts.TreeNode, **kwargs: Any) -> Any:
         items: Iterable[Tuple[Any, Any]] = []
         if isinstance(node, concepts.Node):
             items = list(node.iter_children())
@@ -118,12 +118,12 @@ class NodeTranslator(NodeVisitor):
         assert memo is None or isinstance(memo, dict)
         self.memo = memo or {}
 
-    def generic_visit(self, node: concepts.AnyNodeTree, **kwargs: Any) -> Any:
+    def generic_visit(self, node: concepts.TreeNode, **kwargs: Any) -> Any:
         result: Any
         if isinstance(node, (concepts.Node, collections.abc.Collection)) and not isinstance(
             node, self.ATOMIC_COLLECTION_TYPES
         ):
-            tmp_items: Collection[concepts.AnyNodeTree] = []
+            tmp_items: Collection[concepts.TreeNode] = []
             if isinstance(node, concepts.Node):
                 tmp_items = {
                     key: self.visit(value, **kwargs) for key, value in node.iter_children()
@@ -137,7 +137,7 @@ class NodeTranslator(NodeVisitor):
                 # Sequence or set: create a new container instance with the new values
                 tmp_items = [self.visit(value, **kwargs) for value in node]
                 result = node.__class__(  # type: ignore
-                    value for value in tmp_items if value is not NOTHING  # type: ignore
+                    value for value in tmp_items if value is not NOTHING
                 )
 
             elif isinstance(node, collections.abc.Mapping):
@@ -172,13 +172,13 @@ class NodeModifier(NodeVisitor):
        node = YourTransformer().visit(node)
     """
 
-    def generic_visit(self, node: concepts.AnyNodeTree, **kwargs: Any) -> Any:
+    def generic_visit(self, node: concepts.TreeNode, **kwargs: Any) -> Any:
         result: Any = node
         if isinstance(node, (concepts.Node, collections.abc.Collection)) and not isinstance(
             node, self.ATOMIC_COLLECTION_TYPES
         ):
             items: Iterable[Tuple[Any, Any]] = []
-            tmp_items: Collection[concepts.AnyNodeTree] = []
+            tmp_items: Collection[concepts.TreeNode] = []
             set_op: Union[Callable[[Any, str, Any], None], Callable[[Any, int, Any], None]]
             del_op: Union[Callable[[Any, str], None], Callable[[Any, int], None]]
 
@@ -190,9 +190,7 @@ class NodeModifier(NodeVisitor):
                 items = enumerate(node)
                 index_shift = 0
 
-                def set_op(
-                    container: MutableSequence, idx: int, value: concepts.AnyNodeTree
-                ) -> None:
+                def set_op(container: MutableSequence, idx: int, value: concepts.TreeNode) -> None:
                     container[idx - index_shift] = value
 
                 def del_op(container: MutableSequence, idx: int) -> None:
@@ -203,7 +201,7 @@ class NodeModifier(NodeVisitor):
             elif isinstance(node, collections.abc.MutableSet):
                 items = list(enumerate(node))
 
-                def set_op(container: MutableSet, idx: Any, value: concepts.AnyNodeTree) -> None:
+                def set_op(container: MutableSet, idx: Any, value: concepts.TreeNode) -> None:
                     container.add(value)
 
                 def del_op(container: MutableSet, idx: int) -> None:
@@ -218,7 +216,7 @@ class NodeModifier(NodeVisitor):
                 # Inmutable sequence or set: create a new container instance with the new values
                 tmp_items = [self.visit(value, **kwargs) for value in node]
                 result = node.__class__(  # type: ignore
-                    [value for value in tmp_items if value is not concepts.NOTHING]  # type: ignore
+                    [value for value in tmp_items if value is not concepts.NOTHING]
                 )
 
             elif isinstance(node, collections.abc.Mapping):

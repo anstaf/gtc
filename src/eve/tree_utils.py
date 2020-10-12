@@ -14,7 +14,7 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-from .concepts import AnyNodeTree, Node
+from .concepts import Node, TreeNode
 from .typing import Any, Callable, List, Type
 from .visitors import NodeVisitor
 
@@ -23,7 +23,7 @@ class FindNodes(NodeVisitor):
     def __init__(self, **kwargs: Any) -> None:
         self.result: List = []
 
-    def visit(self, node: AnyNodeTree, **kwargs: Any) -> Any:
+    def visit(self, node: TreeNode, **kwargs: Any) -> Any:
         if kwargs["predicate"](node):
             self.result.append(node)
         self.generic_visit(node, **kwargs)

@@ -20,6 +20,7 @@
 import abc
 import functools
 import itertools
+import warnings
 
 import boltons.typeutils
 import pydantic
@@ -175,9 +176,9 @@ class NodeMetaclass(pydantic.main.ModelMetaclass):
 
 
 AnyNode = TypeVar("AnyNode", bound="BaseNode")
-AnyNodeLeaf = Union[bool, bytes, int, float, str, IntEnum, StrEnum, AnyNode]
-AnyNodeCollection = Union[List[AnyNode], Dict[Any, AnyNodeLeaf], Set[AnyNode]]
-AnyNodeTree = Union[AnyNodeLeaf, AnyNodeCollection]
+ValueNode = Union[bool, bytes, int, float, str, IntEnum, StrEnum]
+LeafNode = Union[AnyNode, ValueNode]
+TreeNode = Union[AnyNode, Union[List[LeafNode], Dict[Any, LeafNode], Set[LeafNode]]]
 
 
 class BaseNode(pydantic.BaseModel, metaclass=NodeMetaclass):
@@ -242,9 +243,6 @@ class FrozenNode(Node):
         pass
 
 
-AnyNodeClasses = (bool, bytes, int, float, str, IntEnum, StrEnum, Node, list, dict, set)
-
-
 class VType(FrozenModel):
 
     # VType fields
@@ -253,15 +251,6 @@ class VType(FrozenModel):
 
     def __init__(self, name: str) -> None:
         super().__init__(name=name)
-
-
-# class Module:
-#     # root
-
-
-# class Program:
-#     # modules: List[Module]
-#     # dialects ?
 
 
 class SourceLocation(FrozenModel):
@@ -293,5 +282,13 @@ class UIDGenerator:
 
     @classmethod
     def reset(cls, start: int = 1) -> None:
-        """Reset generator."""
+        """Reset global generator counter.
+
+        Notes:
+            If the new start value is lower than the last generated UID, new
+            IDs are not longer guaranteed to be unique.
+
+        """
+        if start < next(cls.__counter):
+            warnings.warn("Unsafe reset of global UIDGenerator", RuntimeWarning)
         cls.__counter = itertools.count(start)
