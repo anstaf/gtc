@@ -230,15 +230,15 @@ void nabla(Mesh &&mesh,
     int k_size = 1; // TODO
     auto cuda_alloc =
         gridtools::sid::device::make_cached_allocator(&gridtools::cuda_util::cuda_malloc<char[]>); // TODO
-    auto zavgS_MXX = gridtools::next::make_simple_tmp_storage<edge, double>(
+    auto zavgS_MXX = gridtools::next::make_simple_tmp_storage<double>(
         (int)gridtools::next::connectivity::size(gridtools::next::mesh::connectivity<edge>(mesh)), k_size, cuda_alloc);
-    auto zavgS_MYY = gridtools::next::make_simple_tmp_storage<edge, double>(
+    auto zavgS_MYY = gridtools::next::make_simple_tmp_storage<double>(
         (int)gridtools::next::connectivity::size(gridtools::next::mesh::connectivity<edge>(mesh)), k_size, cuda_alloc);
     {
         auto e2v = gridtools::next::mesh::connectivity<std::tuple<edge, vertex>>(mesh);
         static_assert(gridtools::is_sid<decltype(gridtools::next::connectivity::neighbor_table(e2v))>{});
 
-        auto zavg = gridtools::next::make_simple_tmp_storage<edge, double>(
+        auto zavg = gridtools::next::make_simple_tmp_storage<double>(
             (int)gridtools::next::connectivity::size(gridtools::next::mesh::connectivity<edge>(mesh)), k_size, cuda_alloc);
 
         auto edge_fields = tu::make<gridtools::sid::composite::

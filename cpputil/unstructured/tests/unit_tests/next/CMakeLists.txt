@@ -28,8 +28,4 @@ function(add_gtnext_atlas_test)
     add_gtnext_test(NAME ${ARG_NAME} SOURCES ${ARG_SOURCES} LIBRARIES atlas eckit)
 endfunction()
 
-add_subdirectory(test_helper)
-
 add_gtnext_atlas_test(NAME test_atlas_array_view_adapter)
-add_gtnext_atlas_test(NAME test_atlas_field_util SOURCES test_atlas_field_util.cc)
-add_gtnext_atlas_test(NAME test_mesh SOURCES test_mesh.cc)

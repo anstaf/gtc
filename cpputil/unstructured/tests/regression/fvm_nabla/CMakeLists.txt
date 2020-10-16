@@ -1,19 +1,6 @@
-function(add_driver_executable target driver_source stencil_source)
-    # generate temporary directory to generate driver code to
-    set(gen_dir ${CMAKE_CURRENT_BINARY_DIR}/generated_${target})
-    file(MAKE_DIRECTORY ${gen_dir})
-
-    # get absolute path to the stencil used in the driver template
-    get_filename_component(STENCIL_IMPL_SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/${stencil_source} ABSOLUTE)
-
-    # generate driver source
-    get_filename_component(driver_source_file_name "${driver_source}" NAME)
-    configure_file(${driver_source} ${gen_dir}/${driver_source_file_name})
-
-    # gridtools_setup_target expects a relative path so transform it
-    file(RELATIVE_PATH gen_dir_rel ${CMAKE_CURRENT_SOURCE_DIR} ${gen_dir})
-
-    add_executable(${target} ${gen_dir_rel}/${driver_source_file_name})
+function(add_driver_executable target driver_source stencil_header)
+    add_executable(${target} ${driver_source})
+    target_compile_definitions(${target} PRIVATE STENCIL_HEADER=\"${stencil_header}\")
 endfunction()
 
 add_driver_executable(fvm_nabla driver.cc nabla_naive.hpp)

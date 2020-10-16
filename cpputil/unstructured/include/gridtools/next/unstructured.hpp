@@ -1,13 +1,14 @@
 #pragma once
 
-// TODO namespace?
+#include <gridtools/common/defs.hpp>
+#include <gridtools/common/integral_constant.hpp>
 
-struct vertex;
-struct edge;
-struct cell;
+namespace gridtools::next::dim {
+    using horizontal = integral_constant<int_t, 0>;
+    using vertical = integral_constant<int_t, 1>;
+    using neighbor = integral_constant<int_t, 2>;
 
-struct neighbor;
-
-namespace dim {
-    struct k;
-}
+    using h = horizontal;
+    using k = vertical;
+    using n = neighbor;
+} // namespace gridtools::next::dim

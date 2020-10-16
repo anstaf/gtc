@@ -27,28 +27,8 @@ FetchContent_MakeAvailable(GridTools)
 add_library(gtnext INTERFACE)
 target_include_directories(gtnext INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
-add_executable(prototype prototype.cc)
-target_link_libraries(prototype GridTools::gridtools)
-target_include_directories(prototype PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
-
 find_package(eckit REQUIRED)
 find_package(Atlas REQUIRED)
-
-add_executable(atlas_mesh_adapter atlas_mesh_adapter.cc)
-target_link_libraries(atlas_mesh_adapter atlas GridTools::gridtools)
-target_include_directories(atlas_mesh_adapter PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
-
-add_executable(atlas_field_converter atlas_field_converter.cc)
-target_link_libraries(atlas_field_converter atlas GridTools::gridtools)
-target_include_directories(atlas_field_converter PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
-
-if(CMAKE_CUDA_COMPILER)
-  add_executable(atlas_field_converter_cuda atlas_field_converter.cu)
-  target_link_libraries(atlas_field_converter_cuda atlas GridTools::storage_gpu)
-  target_include_directories(atlas_field_converter_cuda PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
-  target_compile_options(atlas_field_converter_cuda PRIVATE "-std=c++17")
-  target_compile_options(atlas_field_converter_cuda PRIVATE "-arch=sm_50")
-endif()
 
 if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
     include(CTest)
