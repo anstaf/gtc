@@ -1,6 +1,7 @@
 #pragma once
 
 #include <gridtools/common/defs.hpp>
+#include <gridtools/common/hymap.hpp>
 #include <gridtools/common/integral_constant.hpp>
 #include <gridtools/sid/allocator.hpp>
 #include <gridtools/sid/composite.hpp>
