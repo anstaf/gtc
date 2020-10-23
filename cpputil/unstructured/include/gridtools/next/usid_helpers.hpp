@@ -84,9 +84,4 @@ namespace gridtools::next {
             f,
             wstd::forward<Args>(args)...);
     }
-
-    template <class... Keys>
-    constexpr auto make_composite = [](auto &&...sids) {
-        return tuple_util::make<sid::composite::keys<Keys...>::template values>(std::forward<decltype(sids)>(sids)...);
-    };
 } // namespace gridtools::next

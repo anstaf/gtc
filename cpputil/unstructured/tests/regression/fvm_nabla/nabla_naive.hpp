@@ -65,15 +65,15 @@ namespace gridtools::next::naive::nabla_impl_ {
                 auto zavgS_MXX = make_simple_tmp_storage<double>(d.edge, d.k, alloc);
                 auto zavgS_MYY = make_simple_tmp_storage<double>(d.edge, d.k, alloc);
                 call_kernel<kernel_0>(d.edge,
-                    make_composite<e2v_tag, S_MXX_tag, S_MYY_tag, zavgS_MXX_tag, zavgS_MYY_tag>(
+                    sid::composite::make<e2v_tag, S_MXX_tag, S_MYY_tag, zavgS_MXX_tag, zavgS_MYY_tag>(
                         e2v, S_MXX, S_MYY, zavgS_MXX, zavgS_MYY),
-                    make_composite<pp_tag>(pp));
+                    sid::composite::make<pp_tag>(pp));
                 call_kernel<kernel_1>(d.vertex,
-                    make_composite<v2e_tag, pnabla_MXX_tag, pnabla_MYY_tag, sign_tag>(
+                    sid::composite::make<v2e_tag, pnabla_MXX_tag, pnabla_MYY_tag, sign_tag>(
                         v2e, pnabla_MXX, pnabla_MYY, sid::rename_dimensions<dim::s, v2e_tag>(sign)),
-                    make_composite<zavgS_MXX_tag, zavgS_MYY_tag>(zavgS_MXX, zavgS_MYY));
-                call_kernel<kernel_2>(
-                    d.vertex, make_composite<pnabla_MXX_tag, pnabla_MYY_tag, vol_tag>(pnabla_MXX, pnabla_MYY, vol));
+                    sid::composite::make<zavgS_MXX_tag, zavgS_MYY_tag>(zavgS_MXX, zavgS_MYY));
+                call_kernel<kernel_2>(d.vertex,
+                    sid::composite::make<pnabla_MXX_tag, pnabla_MYY_tag, vol_tag>(pnabla_MXX, pnabla_MYY, vol));
             };
     };
 } // namespace gridtools::next::naive::nabla_impl_
