@@ -3,7 +3,7 @@ function(add_driver_executable target driver_source stencil_header)
     target_compile_definitions(${target} PRIVATE STENCIL_HEADER=\"${stencil_header}\")
 endfunction()
 
-add_driver_executable(fvm_nabla driver.cc nabla_naive.hpp)
+add_executable(fvm_nabla driver.cc)
 target_link_libraries(fvm_nabla PRIVATE atlas eckit GridTools::gridtools gtnext gtest gtest_main)
 add_test(NAME fvm_nabla COMMAND $<TARGET_FILE:fvm_nabla>)
 

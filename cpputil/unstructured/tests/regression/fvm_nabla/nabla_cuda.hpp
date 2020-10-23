@@ -4,7 +4,6 @@
 #error "Tried to compile CUDA code with a regular C++ compiler."
 #endif
 
-#include <gridtools/common/cuda_util.hpp>
 #include <gridtools/common/defs.hpp>
 #include <gridtools/common/hymap.hpp>
 #include <gridtools/common/integral_constant.hpp>
@@ -13,12 +12,14 @@
 #include <gridtools/sid/concept.hpp>
 #include <gridtools/sid/loop.hpp>
 #include <gridtools/sid/rename_dimensions.hpp>
-#include <gridtools/storage/gpu.hpp>
 
-#include <gridtools/next/cuda_util.hpp>
 #include <gridtools/next/domain.hpp>
 #include <gridtools/next/tmp_storage.hpp>
 #include <gridtools/next/unstructured.hpp>
+
+#include <gridtools/common/cuda_util.hpp>
+#include <gridtools/next/cuda_util.hpp>
+#include <gridtools/storage/gpu.hpp>
 
 namespace nabla_impl_ {
     using namespace gridtools;
@@ -153,7 +154,7 @@ namespace nabla_impl_ {
             {
                 auto fields =
                     tuple_util::make<sid::composite::keys<v2e_tag, pnabla_MXX_tag, pnabla_MYY_tag, sign_tag>::values>(
-                        v2e, pnabla_MXX, pnabla_MYY, sid::rename_dimensions<dim::n, v2e_dim>(sign));
+                        v2e, pnabla_MXX, pnabla_MYY, sid::rename_dimensions<dim::s, v2e_dim>(sign));
                 auto [blocks, threads_per_block] = cuda_setup(d.vertex);
                 nabla_vertex_2<<<blocks, threads_per_block>>>(d.vertex,
                     sid::make_loop<v2e_dim>(max_neighbors<v2e_dim>(v2e)),
