@@ -154,7 +154,7 @@ namespace driver_impl_ {
         auto pnabla_MXX = make_output();
         auto pnabla_MYY = make_output();
 
-        nabla({.vertex = nodes.size(), .edge = edges.size(), .cell = mesh.cells().size(), .k = k},
+        nabla({nodes.size(), edges.size(), mesh.cells().size(), k},
             make_storage_producer(edges_per_node, nodes.edge_connectivity()),
             make_storage_producer(2_c, edges.node_connectivity()))(make_S_MXX(edges),
             make_S_MYY(edges),
