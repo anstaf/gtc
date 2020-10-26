@@ -1,6 +1,6 @@
 #pragma once
-#include <gridtools/next/usid_naive_helpers.hpp>
-namespace gridtools::next::naive::nabla_impl_ {
+#include <gridtools/usid/naive_helpers.hpp>
+namespace gridtools::usid::naive::nabla_impl_ {
     struct v2e_tag;
     struct e2v_tag;
     struct S_MXX_tag;
@@ -62,5 +62,5 @@ namespace gridtools::next::naive::nabla_impl_ {
                     sid::composite::make<zavgS_MXX_tag, zavgS_MYY_tag>(zavgS_MXX, zavgS_MYY));
             };
     };
-} // namespace gridtools::next::naive::nabla_impl_
-using gridtools::next::naive::nabla_impl_::nabla;
+} // namespace gridtools::usid::naive::nabla_impl_
+using gridtools::usid::naive::nabla_impl_::nabla;

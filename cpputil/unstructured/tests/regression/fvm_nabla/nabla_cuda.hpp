@@ -35,12 +35,6 @@ namespace gridtools::next::cuda::nabla_impl_ {
                     ptr,
                     strides,
                     neighbors);
-            };
-        }
-    };
-    struct kernel_2 {
-        GT_FUNCTION auto operator()() const {
-            return [](auto &&ptr, auto &&strides) {
                 field<pnabla_MXX_tag>(ptr) = field<pnabla_MXX_tag>(ptr) / field<vol_tag>(ptr);
                 field<pnabla_MYY_tag>(ptr) = field<pnabla_MYY_tag>(ptr) / field<vol_tag>(ptr);
             };
@@ -69,11 +63,9 @@ namespace gridtools::next::cuda::nabla_impl_ {
                         e2v, S_MXX, S_MYY, zavgS_MXX, zavgS_MYY),
                     sid::composite::make<pp_tag>(pp));
                 call_kernel<kernel_1>(d.vertex,
-                    sid::composite::make<v2e_tag, pnabla_MXX_tag, pnabla_MYY_tag, sign_tag>(
-                        v2e, pnabla_MXX, pnabla_MYY, sid::rename_dimensions<dim::s, v2e_tag>(sign)),
+                    sid::composite::make<v2e_tag, pnabla_MXX_tag, pnabla_MYY_tag, sign_tag, vol_tag>(
+                        v2e, pnabla_MXX, pnabla_MYY, sid::rename_dimensions<dim::s, v2e_tag>(sign), vol),
                     sid::composite::make<zavgS_MXX_tag, zavgS_MYY_tag>(zavgS_MXX, zavgS_MYY));
-                call_kernel<kernel_2>(d.vertex,
-                    sid::composite::make<pnabla_MXX_tag, pnabla_MYY_tag, vol_tag>(pnabla_MXX, pnabla_MYY, vol));
             };
     };
 } // namespace gridtools::next::cuda::nabla_impl_

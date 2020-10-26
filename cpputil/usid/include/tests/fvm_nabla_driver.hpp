@@ -19,21 +19,21 @@
 #include <gridtools/storage/builder.hpp>
 #include <gridtools/storage/sid.hpp>
 
-#include <gridtools/next/atlas_adapter.hpp>
+#include <gridtools/usid/atlas.hpp>
 
 #ifdef __CUDACC__
 #include <gridtools/storage/gpu.hpp>
-namespace driver_impl_ {
+namespace fvm_nabla_driver_impl_ {
     using storage_traits_t = gridtools::storage::gpu;
 }
 #else
 #include <gridtools/storage/cpu_ifirst.hpp>
-namespace driver_impl_ {
+namespace fvm_nabla_driver_impl_ {
     using storage_traits_t = gridtools::storage::cpu_ifirst;
 }
 #endif
 
-namespace driver_impl_ {
+namespace fvm_nabla_driver_impl_ {
     using namespace gridtools::literals;
 
     inline constexpr auto storage_builder = gridtools::storage::builder<storage_traits_t>;
@@ -142,7 +142,7 @@ namespace driver_impl_ {
     }
 
     template <class Nabla>
-    void driver(Nabla nabla) {
+    void fvm_nabla_driver(Nabla nabla) {
         constexpr auto k = 1_c;
 
         auto mesh = make_mesh();
@@ -172,5 +172,5 @@ namespace driver_impl_ {
         EXPECT_DOUBLE_EQ(-3.3540113705465301E-003, y_min);
         EXPECT_DOUBLE_EQ(3.3540113705465301E-003, y_max);
     } //
-} // namespace driver_impl_
-using driver_impl_::driver;
+} // namespace fvm_nabla_driver_impl_
+using fvm_nabla_driver_impl_::fvm_nabla_driver;
