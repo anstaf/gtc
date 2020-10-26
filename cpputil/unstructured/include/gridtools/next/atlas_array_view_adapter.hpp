@@ -1,14 +1,11 @@
 #pragma once
 
-#include <cstddef>
-#include <utility>
-
 #include <atlas/array.h>
-
+#include <cstddef>
 #include <gridtools/common/hymap.hpp>
 #include <gridtools/common/integral_constant.hpp>
 #include <gridtools/sid/simple_ptr_holder.hpp>
-#include <gridtools/storage/builder.hpp>
+#include <utility>
 
 /**
  * SID adapters for atlas::ArrayView.
@@ -83,19 +80,4 @@ namespace atlas::array {
         return sid_adapter_impl_::to_hymap<std::make_index_sequence<Rank>>{}(view.shape());
     }
 
-    namespace make_storage_impl {
-        template <class Traits, class T, int Rank, std::size_t... Is>
-        auto make_storage(ArrayView<T, Rank> const &view, std::index_sequence<Is...>) {
-            return ::gridtools::storage::builder<Traits> //
-                .template type<T>()                      //
-                .dimensions(view.shape(Is)...)           //
-                .initializer(view)                       //
-                .build();
-        }
-    } // namespace make_storage_impl
-
-    template <class Traits, class T, int Rank>
-    auto make_storage(Traits, ArrayView<T, Rank> const &view) {
-        return make_storage_impl::make_storage<Traits>(view, std::make_index_sequence<Rank>());
-    }
 } // namespace atlas::array
