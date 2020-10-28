@@ -14,42 +14,11 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-import random  # noqa: F401
 
 import pydantic
 import pytest
 
-import eve
-
 from .. import common
-
-
-class TestUIDGenerator:
-    def test_unique_id(self):
-        i = eve.UIDGenerator.get_unique_id()
-        assert eve.UIDGenerator.get_unique_id() != i
-        assert eve.UIDGenerator.get_unique_id(prefix="abcde").startswith("abcde")
-
-    def test_reset(self):
-        i = eve.UIDGenerator.get_unique_id()
-        counter = int(i)
-        eve.UIDGenerator.reset(counter + 1)
-        assert int(eve.UIDGenerator.get_unique_id()) == counter + 1
-        with pytest.warns(RuntimeWarning, match="Unsafe reset"):
-            eve.UIDGenerator.reset(counter)
-
-
-class TestSourceLocation:
-    def test_valid_position(self):
-        eve.SourceLocation(line=1, column=1, source="source")
-
-    def test_invalid_position(self):
-        with pytest.raises(pydantic.ValidationError):
-            eve.SourceLocation(line=1, column=-1, source="source")
-
-    def test_str(self):
-        loc = eve.SourceLocation(line=1, column=1, source="source")
-        assert str(loc) == "<source: Line 1, Col 1>"
 
 
 class TestNode:
@@ -102,3 +71,27 @@ class TestNode:
 
         assert public_names <= field_names
         assert all(name.endswith("_") for name in field_names - public_names)
+
+        assert all(
+            node1 is node2
+            for (name, node1), node2 in zip(
+                sample_node.iter_children(), sample_node.iter_children_values()
+            )
+        )
+
+    def test_node_metadata(self, sample_node):
+        assert all(
+            name in sample_node.__node_attributes__ for name, _ in sample_node.iter_attributes()
+        )
+        assert all(
+            isinstance(metadata, dict)
+            and isinstance(metadata["definition"], pydantic.fields.ModelField)
+            for metadata in sample_node.__node_attributes__.values()
+        )
+
+        assert all(name in sample_node.__node_children__ for name, _ in sample_node.iter_children())
+        assert all(
+            isinstance(metadata, dict)
+            and isinstance(metadata["definition"], pydantic.fields.ModelField)
+            for metadata in sample_node.__node_children__.values()
+        )

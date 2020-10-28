@@ -17,23 +17,21 @@
 """Definitions of basic Eve concepts."""
 
 
-import abc
-import functools
-import itertools
-import warnings
+from __future__ import annotations
 
-import boltons.typeutils
+import collections.abc
+import functools
+
 import pydantic
 
-from . import typing
-from .type_definitions import IntEnum, PositiveInt, Str, StrEnum
-from .typing import (
+from . import type_definitions, utils
+from ._typing import (
     Any,
     AnyNoArgCallable,
     ClassVar,
     Dict,
-    Final,
     Generator,
+    Iterable,
     List,
     Optional,
     Set,
@@ -42,30 +40,35 @@ from .typing import (
     TypedDict,
     TypeVar,
     Union,
+    no_type_check,
 )
+from .type_definitions import NOTHING, IntEnum, Str, StrEnum
 
 
-#: Marker value used to avoid confusion with `None`
-#: (specially in contexts where `None` could be a valid value)
-NOTHING = boltons.typeutils.make_sentinel(name="NOTHING", var_name="NOTHING")
+# -- Attributes and fields --
+class AttributeMetadataDict(TypedDict, total=False):
+    info: pydantic.fields.FieldInfo
+
+
+NodeAttributeMetadataDict = Dict[str, AttributeMetadataDict]
 
 
 class FieldKind(StrEnum):
     INPUT = "input"
     OUTPUT = "output"
-    SYMBOL = "symbol"
 
 
 class FieldConstraintsDict(TypedDict, total=False):
-    vtype: Union["VType", Tuple["VType", ...]]
+    vtype: Union[VType, Tuple[VType, ...]]
 
 
 class FieldMetadataDict(TypedDict, total=False):
-    kind: FieldKind
     constraints: FieldConstraintsDict
+    kind: FieldKind
+    definition: pydantic.fields.ModelField
 
 
-NodeMetadataDict = Dict[str, FieldMetadataDict]
+NodeChildrenMetadataDict = Dict[str, FieldMetadataDict]
 
 
 _EVE_METADATA_KEY = "_EVE_META_"
@@ -91,15 +94,16 @@ def field(
         field_info = pydantic.Field(default_factory=default_factory, **kwargs)
     else:
         field_info = pydantic.Field(default, default_factory=default_factory, **kwargs)
+    assert isinstance(field_info, pydantic.fields.FieldInfo)
 
-    return typing.cast(pydantic.fields.FieldInfo, field_info)
+    return field_info
 
 
 in_field = functools.partial(field, kind=FieldKind.INPUT)
 out_field = functools.partial(field, kind=FieldKind.OUTPUT)
-symbol_field = functools.partial(field, kind=FieldKind.SYMBOL)
 
 
+# -- Models --
 class BaseModelConfig:
     extra = "forbid"
 
@@ -118,62 +122,9 @@ class FrozenModel(pydantic.BaseModel):
         pass
 
 
-class Trait(abc.ABC):
-    REGISTRY: Final[Dict[str, Type["Trait"]]] = {}
-    name: ClassVar[str]
-
-    @classmethod
-    def __init_subclass__(cls, **kwargs: Any) -> None:
-        assert hasattr(cls, "name") and isinstance(cls.name, str)
-        Trait.REGISTRY[cls.name] = cls
-
-    @classmethod
-    @abc.abstractmethod
-    def process_namespace(
-        cls, namespace: Dict[str, Any], trait_names: List[str], meta_kwargs: Dict[str, Any]
-    ) -> None:
-        ...
-
-    @classmethod
-    @abc.abstractmethod
-    def process_class(
-        cls, node_class: Type["Node"], trait_names: List[str], meta_kwargs: Dict[str, Any]
-    ) -> None:
-        ...
-
-
+# -- Nodes --
 _EVE_NODE_IMPL_SUFFIX = "_"
-
 _EVE_NODE_ATTR_SUFFIX = "_attr_"
-
-
-class NodeMetaclass(pydantic.main.ModelMetaclass):
-    @typing.no_type_check
-    def __new__(mcs, name, bases, namespace, **kwargs):
-        # Apply traits to the namespace and the class
-        trait_names: List[Type[Trait]] = kwargs.pop("traits", [])
-        traits = []
-        for name in trait_names:
-            trait = Trait.REGISTRY[name]
-            trait.process_namespace(namespace, trait_names, kwargs)
-            traits.append(trait)
-
-        cls = super().__new__(mcs, name, bases, namespace, **kwargs)
-
-        for trait in traits:
-            trait.process_class(cls, trait_names, kwargs)
-
-        # Add custom class members
-        fields_metadata = {}
-        for name, field in cls.__fields__.items():
-            if not (name.endswith(_EVE_NODE_ATTR_SUFFIX) or name.endswith(_EVE_NODE_IMPL_SUFFIX)):
-                fields_metadata[name] = field.field_info.extra.get(_EVE_METADATA_KEY, {})
-
-        cls.__node_metadata__ = fields_metadata
-        cls.__node_traits__ = trait_names
-
-        return cls
-
 
 AnyNode = TypeVar("AnyNode", bound="BaseNode")
 ValueNode = Union[bool, bytes, int, float, str, IntEnum, StrEnum]
@@ -181,24 +132,70 @@ LeafNode = Union[AnyNode, ValueNode]
 TreeNode = Union[AnyNode, Union[List[LeafNode], Dict[Any, LeafNode], Set[LeafNode]]]
 
 
+class NodeMetaclass(pydantic.main.ModelMetaclass):
+    """Custom metaclass for Node classes (inherits from pydantic metaclass).
+
+    Customize the creation of Node classes adding Eve specific attributes.
+
+    """
+
+    @no_type_check
+    def __new__(mcs, name, bases, namespace, **kwargs):
+        # Optional preprocessing of class namespace before creation:
+        #
+
+        cls = super().__new__(mcs, name, bases, namespace, **kwargs)
+
+        # Postprocess created class:
+        # Add metadata class members
+        attributes_metadata = {}
+        children_metadata = {}
+        for name, model_field in cls.__fields__.items():
+            if name.endswith(_EVE_NODE_ATTR_SUFFIX):
+                attributes_metadata[name] = {"definition": model_field}
+            elif not name.endswith(_EVE_NODE_IMPL_SUFFIX):
+                children_metadata[name] = {
+                    "definition": model_field,
+                    **model_field.field_info.extra.get(_EVE_METADATA_KEY, {}),
+                }
+
+        cls.__node_attributes__ = attributes_metadata
+        cls.__node_children__ = children_metadata
+
+        return cls
+
+
 class BaseNode(pydantic.BaseModel, metaclass=NodeMetaclass):
     """Base class representing an IR node.
+
+    It is currently implemented as a pydantic Model with some extra features.
 
     Field values should be either:
 
         * builtin types: `bool`, `bytes`, `int`, `float`, `str`
+        * enum.Enum types
         * other :class:`Node` subclasses
         * other :class:`pydantic.BaseModel` subclasses
         * supported collections (:class:`List`, :class:`Dict`, :class:`Set`)
             of any of the previous items
 
-    Field names may not start with "_". Field names ending with "_" are
-    considered implementation helpers and will not appear in the node iterators.
-    Field names ending with "_attr_" are considered meta-attributes of the node,
-    not children.
+    Field naming scheme:
+
+        * Field names starting with "_" are ignored by pydantic and Eve. They
+            will not be considered as `fields` and thus none of the pydantic
+            features will work (type coercion, validators, etc.).
+        * Field names ending with "_" are ignored only by Eve, not by pydantic.
+            This means that all pydantic features will work on these fields,
+            but they will be invisible for Eve. They are reserved for internal Eve
+            use and should not be defined by regular users.
+        * Field names ending with "_attr_" are considered implementation fields
+            not children. They are intended to be defined by users when needed,
+            typically to cache derived, non-essential information on the node.
+
     """
 
-    __node_metadata__: NodeMetadataDict
+    __node_attributes__: ClassVar[NodeAttributeMetadataDict]
+    __node_children__: ClassVar[NodeChildrenMetadataDict]
 
     # Node fields
     #: Unique node-id (meta-attribute)
@@ -207,7 +204,7 @@ class BaseNode(pydantic.BaseModel, metaclass=NodeMetaclass):
     @pydantic.validator("id_attr_", pre=True, always=True)
     def _id_attr_validator(cls: Type[AnyNode], v: Optional[str]) -> str:  # type: ignore  # validators are classmethods
         if v is None:
-            v = UIDGenerator.get_unique_id(prefix=cls.__qualname__)
+            v = utils.UIDGenerator.sequential_id(prefix=cls.__qualname__)
         if not isinstance(v, str):
             raise TypeError(f"id_attr_ is not an 'str' instance ({type(v)})")
         return v
@@ -222,27 +219,59 @@ class BaseNode(pydantic.BaseModel, metaclass=NodeMetaclass):
             if not (name.endswith(_EVE_NODE_ATTR_SUFFIX) or name.endswith(_EVE_NODE_IMPL_SUFFIX)):
                 yield name, getattr(self, name)
 
-    def select(self, *, kind: Optional[FieldKind] = None) -> Generator[Tuple[str, Any], None, None]:
-        for name, _ in self.__fields__.items():
-            if not (name.endswith(_EVE_NODE_ATTR_SUFFIX) or name.endswith(_EVE_NODE_IMPL_SUFFIX)):
-                if kind and self.__node_metadata__.get("kind", None) == kind:
-                    yield name, getattr(self, name)
+    def iter_children_values(self) -> Generator[Any, None, None]:
+        for _, node in self.iter_children():
+            yield node
 
     class Config(BaseModelConfig):
         pass
 
 
 class Node(BaseNode):
+    """Default public name for a base node class."""
+
     pass
 
 
 class FrozenNode(Node):
-    """Base inmutable node class."""
+    """Default public name for an inmutable base node class."""
 
     class Config(FrozenModelConfig):
         pass
 
 
+KeyValue = Tuple[Union[int, str], Any]
+TreeIterationItem = Union[Any, Tuple[KeyValue, Any]]
+
+
+def generic_iter_children(
+    node: TreeNode, *, with_keys: bool = False
+) -> Iterable[Union[Any, Tuple[KeyValue, Any]]]:
+    """Create an iterator to traverse values as Eve tree nodes.
+
+    Args:
+        with_keys: Return tuples of (key, object) values where keys are
+            the reference to the object node in the parent.
+            Defaults to `False`.
+
+    """
+
+    children_iterator: Iterable[Union[Any, Tuple[KeyValue, Any]]] = iter(())
+    if isinstance(node, Node):
+        children_iterator = node.iter_children() if with_keys else node.iter_children_values()
+    elif isinstance(node, collections.abc.Sequence) and not isinstance(
+        node, type_definitions.ATOMIC_COLLECTION_TYPES
+    ):
+        children_iterator = enumerate(node) if with_keys else iter(node)
+    elif isinstance(node, collections.abc.Set):
+        children_iterator = zip(node, node) if with_keys else iter(node)  # type: ignore  # problems with iter(Set)
+    elif isinstance(node, collections.abc.Mapping):
+        children_iterator = node.items() if with_keys else node.values()
+
+    return children_iterator
+
+
+# -- Misc --
 class VType(FrozenModel):
 
     # VType fields
@@ -251,44 +280,3 @@ class VType(FrozenModel):
 
     def __init__(self, name: str) -> None:
         super().__init__(name=name)
-
-
-class SourceLocation(FrozenModel):
-    """Source code location (line, column, source)."""
-
-    line: PositiveInt
-    column: PositiveInt
-    source: Str
-
-    def __init__(self, line: int, column: int, source: str) -> None:
-        super().__init__(line=line, column=column, source=source)
-
-    def __str__(self) -> str:
-        src = self.source or ""
-        return f"<{src}: Line {self.line}, Col {self.column}>"
-
-
-class UIDGenerator:
-    """Simple unique id generator using a counter."""
-
-    #: Constantly increasing counter for generation of unique ids
-    __counter = itertools.count(1)
-
-    @classmethod
-    def get_unique_id(cls, *, prefix: Optional[str] = None) -> str:
-        """Generate a new globally unique id (for the current session)."""
-        count = next(cls.__counter)
-        return f"{prefix}_{count}" if prefix else f"{count}"
-
-    @classmethod
-    def reset(cls, start: int = 1) -> None:
-        """Reset global generator counter.
-
-        Notes:
-            If the new start value is lower than the last generated UID, new
-            IDs are not longer guaranteed to be unique.
-
-        """
-        if start < next(cls.__counter):
-            warnings.warn("Unsafe reset of global UIDGenerator", RuntimeWarning)
-        cls.__counter = itertools.count(start)
