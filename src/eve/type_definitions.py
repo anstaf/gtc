@@ -122,7 +122,7 @@ class SymbolName(str):
     NAME_REGEX = re.compile(r"[a-zA-Z_]\w*")
 
     @staticmethod
-    @functools.lru_cache
+    @functools.lru_cache(maxsize=128)
     def constrained(regex: str) -> Type[SymbolName]:
         xxh64 = xxhash.xxh64()
         xxh64.update(regex.encode())
