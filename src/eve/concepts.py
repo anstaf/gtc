@@ -25,7 +25,8 @@ import functools
 import pydantic
 
 from . import type_definitions, utils
-from ._typing import (
+from .type_definitions import NOTHING, IntEnum, Str, StrEnum
+from .typingx import (
     Any,
     AnyNoArgCallable,
     ClassVar,
@@ -42,7 +43,6 @@ from ._typing import (
     Union,
     no_type_check,
 )
-from .type_definitions import NOTHING, IntEnum, Str, StrEnum
 
 
 # -- Fields --

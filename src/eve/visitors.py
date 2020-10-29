@@ -22,8 +22,8 @@ import copy
 import operator
 
 from . import concepts, type_definitions
-from ._typing import Any, Callable, Collection, Iterable, MutableSequence, MutableSet, Tuple, Union
 from .concepts import NOTHING
+from .typingx import Any, Callable, Collection, Iterable, MutableSequence, MutableSet, Tuple, Union
 
 
 class NodeVisitor:

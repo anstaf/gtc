@@ -39,7 +39,7 @@ from pydantic import (  # noqa: F401
     validator,
 )
 
-from ._typing import Any, Callable, Dict, Generator, Mapping, Optional, Type
+from .typingx import Any, Callable, Dict, Generator, Mapping, Optional, Type
 
 
 #: Marker value used to avoid confusion with `None`

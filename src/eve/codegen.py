@@ -34,7 +34,8 @@ import jinja2
 from mako import template as mako_tpl
 
 from . import type_definitions, utils
-from ._typing import (
+from .concepts import Node, TreeNode
+from .typingx import (
     Any,
     Callable,
     ClassVar,
@@ -52,7 +53,6 @@ from ._typing import (
     Union,
     cast,
 )
-from .concepts import Node, TreeNode
 from .visitors import NodeVisitor
 
 

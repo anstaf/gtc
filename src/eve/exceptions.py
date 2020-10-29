@@ -16,7 +16,7 @@
 
 """Definitions of specific Eve exceptions."""
 
-from ._typing import Any
+from .typingx import Any
 
 
 class EveError:
