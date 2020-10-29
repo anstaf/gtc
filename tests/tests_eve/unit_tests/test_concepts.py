@@ -56,7 +56,12 @@ class TestNode:
 
         assert all(name.endswith("_") and not name.endswith("__") for name in impl_names)
         assert (
-            set(name for name in sample_node.__fields__.keys() if name.endswith("_")) == impl_names
+            set(
+                name
+                for name in sample_node.__fields__.keys()
+                if name.endswith("_") and not name.endswith("__")
+            )
+            == impl_names
         )
 
     def test_children(self, sample_node):

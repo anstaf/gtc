@@ -133,18 +133,16 @@ TreeNode = Union[AnyNode, Union[List[LeafNode], Dict[Any, LeafNode], Set[LeafNod
 
 
 class NodeMetaclass(pydantic.main.ModelMetaclass):
-    """Custom metaclass for Node classes (inherits from pydantic metaclass).
+    """Custom metaclass for Node classes.
 
     Customize the creation of Node classes adding Eve specific attributes.
 
     """
 
     @no_type_check
-    def __new__(mcs, name, bases, namespace, **kwargs):
+    def __new__(mcls, name, bases, namespace, **kwargs):
         # Optional preprocessing of class namespace before creation:
-        #
-
-        cls = super().__new__(mcs, name, bases, namespace, **kwargs)
+        cls = super().__new__(mcls, name, bases, namespace, **kwargs)
 
         # Postprocess created class:
         # Add metadata class members
@@ -210,7 +208,9 @@ class BaseNode(pydantic.BaseModel, metaclass=NodeMetaclass):
 
     def iter_impl_fields(self) -> Generator[Tuple[str, Any], None, None]:
         for name, _ in self.__fields__.items():
-            if name.endswith(_EVE_NODE_IMPL_SUFFIX):
+            if name.endswith(_EVE_NODE_IMPL_SUFFIX) and not name.endswith(
+                _EVE_NODE_INTERNAL_SUFFIX
+            ):
                 yield name, getattr(self, name)
 
     def iter_children(self) -> Generator[Tuple[str, Any], None, None]:
