@@ -22,8 +22,8 @@ from typing import Collection, Dict, List, Mapping, Optional, Sequence, Set, Typ
 
 from pydantic import Field, validator  # noqa: F401
 
-from eve.concepts import FrozenNode, Node, SourceLocation, VType
-from eve.type_definitions import Bool, Bytes, Float, Int, IntEnum, Str, StrEnum
+from eve.concepts import FrozenNode, Node, VType
+from eve.type_definitions import Bool, Bytes, Float, Int, IntEnum, SourceLocation, Str, StrEnum
 
 
 T = TypeVar("T")
@@ -192,15 +192,13 @@ class SimpleNodeWithOptionals(Node):
     str_value: Optional[Str]
 
 
-class SimpleNodeWithHiddenMembers(Node):
-
-    hidden_attr_: Int
+class SimpleNodeWithImplMembers(Node):
+    value_impl_: Int
     int_value: Int
-    hidden_value_: Int
+    another_value_impl_: Int
 
 
 class SimpleNodeWithLoc(Node):
-
     int_value: Int
     float_value: Float
     str_value: Str
@@ -208,7 +206,6 @@ class SimpleNodeWithLoc(Node):
 
 
 class SimpleNodeWithCollections(Node):
-
     int_list: List[Int]
     str_set: Set[Str]
     str_to_int_dict: Dict[Str, Int]
@@ -216,7 +213,6 @@ class SimpleNodeWithCollections(Node):
 
 
 class SimpleNodeWithAbstractCollections(Node):
-
     int_sequence: Sequence[Int]
     str_set: Set[Str]
     str_to_int_mapping: Mapping[Str, Int]
@@ -289,12 +285,12 @@ def make_simple_node_with_optionals(fixed: bool = False) -> SimpleNodeWithOption
     return SimpleNodeWithOptionals(int_value=int_value, float_value=float_value)
 
 
-def make_simple_node_with_hidden_members(fixed: bool = False) -> SimpleNodeWithHiddenMembers:
+def make_simple_node_with_impl_members(fixed: bool = False) -> SimpleNodeWithImplMembers:
     factories = Factories if fixed else RandomFactories
     int_value = factories.make_int()
 
-    return SimpleNodeWithHiddenMembers(
-        hidden_attr_=int_value, int_value=int_value, hidden_value_=int_value
+    return SimpleNodeWithImplMembers(
+        value_impl_=int_value, int_value=int_value, another_value_impl_=int_value
     )
 
 

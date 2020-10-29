@@ -17,6 +17,8 @@
 """Tools for source code generation."""
 
 
+from __future__ import annotations
+
 import abc
 import collections.abc
 import contextlib
@@ -31,9 +33,8 @@ import black
 import jinja2
 from mako import template as mako_tpl
 
-from . import typing, utils
-from .concepts import Node, TreeNode
-from .typing import (
+from . import type_definitions, utils
+from ._typing import (
     Any,
     Callable,
     ClassVar,
@@ -49,7 +50,9 @@ from .typing import (
     Type,
     TypeVar,
     Union,
+    cast,
 )
+from .concepts import Node, TreeNode
 from .visitors import NodeVisitor
 
 
@@ -160,7 +163,7 @@ class Name:
     words: List[str]
 
     @classmethod
-    def from_string(cls, name: str, case_style: utils.CaseStyleConverter.CASE_STYLE) -> "Name":
+    def from_string(cls, name: str, case_style: utils.CaseStyleConverter.CASE_STYLE) -> Name:
         return cls(utils.CaseStyleConverter.split(name, case_style))
 
     def __init__(self, words: utils.AnyWordsIterable) -> None:
@@ -219,7 +222,7 @@ class TextBlock:
         self.end_line = end_line
         self.lines: List[str] = []
 
-    def append(self, new_line: str, *, update_indent: int = 0) -> "TextBlock":
+    def append(self, new_line: str, *, update_indent: int = 0) -> TextBlock:
         if update_indent > 0:
             self.indent(update_indent)
         elif update_indent < 0:
@@ -229,7 +232,7 @@ class TextBlock:
 
         return self
 
-    def extend(self, new_lines: AnyTextSequence, *, dedent: bool = False) -> "TextBlock":
+    def extend(self, new_lines: AnyTextSequence, *, dedent: bool = False) -> TextBlock:
         assert isinstance(new_lines, (collections.abc.Sequence, TextBlock))
 
         if dedent:
@@ -246,21 +249,21 @@ class TextBlock:
 
         return self
 
-    def empty_line(self, count: int = 1) -> "TextBlock":
+    def empty_line(self, count: int = 1) -> TextBlock:
         self.lines.extend([""] * count)
         return self
 
-    def indent(self, steps: int = 1) -> "TextBlock":
+    def indent(self, steps: int = 1) -> TextBlock:
         self.indent_level += steps
         return self
 
-    def dedent(self, steps: int = 1) -> "TextBlock":
+    def dedent(self, steps: int = 1) -> TextBlock:
         assert self.indent_level >= steps
         self.indent_level -= steps
         return self
 
     @contextlib.contextmanager
-    def indented(self, steps: int = 1) -> Iterator["TextBlock"]:
+    def indented(self, steps: int = 1) -> Iterator[TextBlock]:
         """Context manager creator for temporary indentation of sources.
 
         This context manager simplifies the usage of indent/dedent in
@@ -296,7 +299,7 @@ class TextBlock:
         """Indentation string for new lines (in the current state)."""
         return self.indent_char * (self.indent_level * self.indent_size)
 
-    def __iadd__(self, source_line: Union[str, AnyTextSequence]) -> "TextBlock":
+    def __iadd__(self, source_line: Union[str, AnyTextSequence]) -> TextBlock:
         if isinstance(source_line, str):
             return self.append(source_line)
         else:
@@ -320,7 +323,7 @@ class Template(abc.ABC):
     """
 
     @classmethod
-    def from_file(cls: Type[TemplateT], file_path: Union[str, os.PathLike]) -> "Template":
+    def from_file(cls: Type[TemplateT], file_path: Union[str, os.PathLike]) -> Template:
         if cls is Template:
             raise RuntimeError("This method can only be called in concrete Template subclasses")
 
@@ -433,9 +436,9 @@ class TemplatedGenerator(NodeVisitor):
     When a template is used, the following keys will be passed to the template
     instance:
 
-        * `**node_fields`: all the node children and attributes by name.
-        * `_attrs`: a `dict` instance with the results of visiting all
-            the node attributes.
+        * `**node_fields`: all the node children and implementation fields by name.
+        * `_impl`: a `dict` instance with the results of visiting all
+            the node implementation fields.
         * `_children`: a `dict` instance with the results of visiting all
             the node children.
         * `_this_node`: the actual node instance (before visiting children).
@@ -453,8 +456,7 @@ class TemplatedGenerator(NodeVisitor):
 
     @classmethod
     def __init_subclass__(cls, *, inherit_templates: bool = True, **kwargs: Any) -> None:
-        # mypy has troubles with __init_subclass__: https://github.com/python/mypy/issues/4660
-        super().__init_subclass__(**kwargs)  # type: ignore
+        super().__init_subclass__(**kwargs)  # type: ignore  # mypy issues 4335, 4660
         if "_templates_" in cls.__dict__:
             raise TypeError(f"Invalid '_templates_' member in class {cls}")
 
@@ -492,7 +494,7 @@ class TemplatedGenerator(NodeVisitor):
             String (or collection of strings) with the dumped version of the root IR node.
 
         """
-        return typing.cast(Union[str, Collection[str]], cls().visit(root, **kwargs))
+        return cast(Union[str, Collection[str]], cls().visit(root, **kwargs))
 
     @classmethod
     def generic_dump(cls, node: TreeNode, **kwargs: Any) -> str:
@@ -511,11 +513,11 @@ class TemplatedGenerator(NodeVisitor):
                     template,
                     node,
                     self.transform_children(node, **kwargs),
-                    self.transform_attrs(node, **kwargs),
+                    self.transform_impl_fields(node, **kwargs),
                     **kwargs,
                 )
         elif isinstance(node, (collections.abc.Sequence, collections.abc.Set)) and not isinstance(
-            node, self.ATOMIC_COLLECTION_TYPES
+            node, type_definitions.ATOMIC_COLLECTION_TYPES
         ):
             result = [self.visit(value, **kwargs) for value in node]
         elif isinstance(node, collections.abc.Mapping):
@@ -543,16 +545,16 @@ class TemplatedGenerator(NodeVisitor):
         template: Template,
         node: Node,
         transformed_children: Mapping[str, Any],
-        transformed_attrs: Mapping[str, Any],
+        transformed_impl_fields: Mapping[str, Any],
         **kwargs: Any,
     ) -> str:
         """Render a template using node instance data (see class documentation)."""
 
         return template.render(
             **transformed_children,
-            **transformed_attrs,
+            **transformed_impl_fields,
             _children=transformed_children,
-            _attrs=transformed_attrs,
+            _impl=transformed_impl_fields,
             _this_node=node,
             _this_generator=self,
             _this_module=sys.modules[type(self).__module__],
@@ -562,11 +564,5 @@ class TemplatedGenerator(NodeVisitor):
     def transform_children(self, node: Node, **kwargs: Any) -> Dict[str, Any]:
         return {key: self.visit(value, **kwargs) for key, value in node.iter_children()}
 
-    def transform_attrs(self, node: Node, **kwargs: Any) -> Dict[str, Any]:
-        return {key: self.visit(value, **kwargs) for key, value in node.iter_attributes()}
-
-
-if __name__ == "__main__":
-    import doctest
-
-    doctest.testmod()
+    def transform_impl_fields(self, node: Node, **kwargs: Any) -> Dict[str, Any]:
+        return {key: self.visit(value, **kwargs) for key, value in node.iter_impl_fields()}
