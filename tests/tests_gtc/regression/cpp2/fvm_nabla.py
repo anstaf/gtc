@@ -1,122 +1,123 @@
 import sys
-from gtc.unstructured.usid2 import *
-from gtc.unstructured import usid2_codegen
+from gtc.unstructured import usid2_codegen, usid2
+from gtc import common
 
-input = Computation(
+_usid2_src = usid2.Computation(
     name='nabla',
     connectivities=['v2e', 'e2v'],
     params=['S_MXX', 'S_MYY', 'pp', 'pnabla_MXX', 'pnabla_MYY', 'vol', 'sign'],
     temporaries=[
-        Temporary(name='zavgS_MXX', dtype='double', location_type='edge'),
-        Temporary(name='zavgS_MYY', dtype='double', location_type='edge'),
+        usid2.Temporary(name='zavgS_MXX', dtype='double', location_type='edge'),
+        usid2.Temporary(name='zavgS_MYY', dtype='double', location_type='edge'),
     ],
     kernels=[
-        Kernel(
+        usid2.Kernel(
             location_type='edge',
-            primary=Composite(
+            primary=usid2.Composite(
                 name='e',
                 items=[
-                    Sid(name='e2v'),
-                    Sid(name='S_MXX'),
-                    Sid(name='S_MYY'),
-                    Sid(name='zavgS_MXX'),
-                    Sid(name='zavgS_MYY')]),
-            secondaries=[Composite(name='v', items=[Sid(name='pp')])],
+                    usid2.Sid(name='e2v'),
+                    usid2.Sid(name='S_MXX'),
+                    usid2.Sid(name='S_MYY'),
+                    usid2.Sid(name='zavgS_MXX'),
+                    usid2.Sid(name='zavgS_MYY')]),
+            secondaries=[usid2.Composite(name='v', items=[usid2.Sid(name='pp')])],
             body=[
-                VarDecl(
+                usid2.VarDecl(
                     name='zavg',
-                    init=BinaryOp(
+                    init=usid2.BinaryOp(
                         op=common.BinaryOperator.MUL,
-                        left=Literal(dtype='double', value='.5'),
-                        right=NeighborReduction(
-                            op=ReduceOperator.ADD,
+                        left=usid2.Literal(dtype='double', value='.5'),
+                        right=usid2.NeighborReduction(
+                            op=usid2.ReduceOperator.ADD,
                             dtype='double',
                             connectivity='e2v',
                             max_neighbors=2,
                             has_skip_values=False,
                             primary='e',
                             secondary='v',
-                            body=FieldAccess(name='pp', location='v'),
+                            body=usid2.FieldAccess(name='pp', location='v'),
                         ),
                     ),
                 ),
-                Assign(
-                    left=FieldAccess(name='zavgS_MXX', location='e'),
-                    right=BinaryOp(
+                usid2.Assign(
+                    left=usid2.FieldAccess(name='zavgS_MXX', location='e'),
+                    right=usid2.BinaryOp(
                         op=common.BinaryOperator.MUL,
-                        left=FieldAccess(name='S_MXX', location='e'),
-                        right=VarAccess(name='zavg')),
+                        left=usid2.FieldAccess(name='S_MXX', location='e'),
+                        right=usid2.VarAccess(name='zavg')),
                 ),
-                Assign(
-                    left=FieldAccess(name='zavgS_MYY', location='e'),
-                    right=BinaryOp(
+                usid2.Assign(
+                    left=usid2.FieldAccess(name='zavgS_MYY', location='e'),
+                    right=usid2.BinaryOp(
                         op=common.BinaryOperator.MUL,
-                        left=FieldAccess(name='S_MYY', location='e'),
-                        right=VarAccess(name='zavg')),
+                        left=usid2.FieldAccess(name='S_MYY', location='e'),
+                        right=usid2.VarAccess(name='zavg')),
                 ),
             ],
         ),
-        Kernel(
+        usid2.Kernel(
             location_type='vertex',
-            primary=Composite(
+            primary=usid2.Composite(
                 name='v',
                 items=[
-                    Sid(name='v2e'),
-                    Sid(name='pnabla_MXX'),
-                    Sid(name='pnabla_MYY'),
-                    SparseField(name='sign', connectivity='v2e'),
-                    Sid(name='vol')
+                    usid2.Sid(name='v2e'),
+                    usid2.Sid(name='pnabla_MXX'),
+                    usid2.Sid(name='pnabla_MYY'),
+                    usid2.SparseField(name='sign', connectivity='v2e'),
+                    usid2.Sid(name='vol')
                 ]),
-            secondaries=[Composite(name='e', items=[Sid(name='zavgS_MXX'), Sid(name='zavgS_MYY')])],
+            secondaries=[usid2.Composite(
+                name='e', items=[usid2.Sid(name='zavgS_MXX'), usid2.Sid(name='zavgS_MYY')])],
             body=[
-                Assign(
-                    left=FieldAccess(name='pnabla_MXX', location='v'),
-                    right=NeighborReduction(
-                        op=ReduceOperator.ADD,
+                usid2.Assign(
+                    left=usid2.FieldAccess(name='pnabla_MXX', location='v'),
+                    right=usid2.NeighborReduction(
+                        op=usid2.ReduceOperator.ADD,
                         dtype='double',
                         connectivity='v2e',
                         max_neighbors=7,
                         has_skip_values=True,
                         primary='v',
                         secondary='e',
-                        body=BinaryOp(
+                        body=usid2.BinaryOp(
                             op=common.BinaryOperator.MUL,
-                            left=FieldAccess(name='zavgS_MXX', location='e'),
-                            right=FieldAccess(name='sign', location='v'),
+                            left=usid2.FieldAccess(name='zavgS_MXX', location='e'),
+                            right=usid2.FieldAccess(name='sign', location='v'),
                         ),
                     ),
                 ),
-                Assign(
-                    left=FieldAccess(name='pnabla_MYY', location='v'),
-                    right=NeighborReduction(
-                        op=ReduceOperator.ADD,
+                usid2.Assign(
+                    left=usid2.FieldAccess(name='pnabla_MYY', location='v'),
+                    right=usid2.NeighborReduction(
+                        op=usid2.ReduceOperator.ADD,
                         dtype='double',
                         connectivity='v2e',
                         max_neighbors=7,
                         has_skip_values=True,
                         primary='v',
                         secondary='e',
-                        body=BinaryOp(
+                        body=usid2.BinaryOp(
                             op=common.BinaryOperator.MUL,
-                            left=FieldAccess(name='zavgS_MYY', location='e'),
-                            right=FieldAccess(name='sign', location='v'),
+                            left=usid2.FieldAccess(name='zavgS_MYY', location='e'),
+                            right=usid2.FieldAccess(name='sign', location='v'),
                         ),
                     ),
                 ),
-                Assign(
-                    left=FieldAccess(name='pnabla_MXX', location='v'),
-                    right=BinaryOp(
+                usid2.Assign(
+                    left=usid2.FieldAccess(name='pnabla_MXX', location='v'),
+                    right=usid2.BinaryOp(
                         op=common.BinaryOperator.DIV,
-                        left=FieldAccess(name='pnabla_MXX', location='v'),
-                        right=FieldAccess(name='vol', location='v'),
+                        left=usid2.FieldAccess(name='pnabla_MXX', location='v'),
+                        right=usid2.FieldAccess(name='vol', location='v'),
                     ),
                 ),
-                Assign(
-                    left=FieldAccess(name='pnabla_MYY', location='v'),
-                    right=BinaryOp(
+                usid2.Assign(
+                    left=usid2.FieldAccess(name='pnabla_MYY', location='v'),
+                    right=usid2.BinaryOp(
                         op=common.BinaryOperator.DIV,
-                        left=FieldAccess(name='pnabla_MYY', location='v'),
-                        right=FieldAccess(name='vol', location='v'),
+                        left=usid2.FieldAccess(name='pnabla_MYY', location='v'),
+                        right=usid2.FieldAccess(name='vol', location='v'),
                     ),
                 ),
             ],
@@ -125,4 +126,4 @@ input = Computation(
 
 if __name__ == "__main__":
     gen = usid2_codegen.gpu if len(sys.argv) > 1 and sys.argv[1] == 'gpu' else usid2_codegen.naive
-    print(gen(input))
+    print(gen(_usid2_src))
