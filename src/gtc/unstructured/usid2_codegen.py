@@ -21,37 +21,46 @@ from gtc.unstructured import usid2
 
 
 class _KernelCallGenerator(codegen.TemplatedGenerator):
-    Sid = as_fmt('{name}')
-    SparseField = as_fmt('sid::rename_dimensions<dim::s, {connectivity}_tag>({name})')
+    Sid = as_fmt("{name}")
+    SparseField = as_fmt("sid::rename_dimensions<dim::s, {connectivity}_tag>({name})")
     Composite = as_mako(
-        "sid::composite::make<${', '.join(f'{i.name}_tag' for i in _this_node.items)}>(${', '.join(items)})")
+        "sid::composite::make<${', '.join(f'{i.name}_tag' for i in _this_node.items)}>(${', '.join(items)})"
+    )
     Kernel = as_mako(
-        "call_kernel<${id_}>(d.${location_type}${''.join(f', {c}' for c in [primary] + secondaries)});")
+        "call_kernel<${id_}>(d.${location_type}${''.join(f', {c}' for c in [primary] + secondaries)});"
+    )
 
 
 class _Generator(codegen.TemplatedGenerator):
     def visit_Computation(self, node: usid2.Computation, **kwargs):
-        return self.generic_visit(node, kernel_calls=[_KernelCallGenerator.apply(k) for k in node.kernels], **kwargs)
+        return self.generic_visit(
+            node, kernel_calls=[_KernelCallGenerator.apply(k) for k in node.kernels], **kwargs
+        )
 
-    Literal = as_mako('${dtype}{${value}}')
-    BinaryOp = as_fmt('({left} {op} {right})')
-    FieldAccess = as_fmt('field<{name}_tag>({location})')
-    VarAccess = as_fmt('{name}')
+    Literal = as_mako("${dtype}{${value}}")
+    BinaryOp = as_fmt("({left} {op} {right})")
+    FieldAccess = as_fmt("field<{name}_tag>({location})")
+    VarAccess = as_fmt("{name}")
     NeighborReduction = as_mako(
-        '${op}_neighbors<${dtype}, ${connectivity}_tag, ${max_neighbors}, ${has_skip_values.lower()}>' +
-        '([](auto &&${primary}, auto &&${secondary}) { return ${body}; }, ${primary}, strides, ${secondary})')
-    VarDecl = as_fmt('auto&& {name} = {init};')
-    Assign = as_fmt('{left} = {right};')
-    Kernel = as_mako('''struct ${id_} {
+        "${op}_neighbors<${dtype}, ${connectivity}_tag, ${max_neighbors}, ${has_skip_values.lower()}>"
+        + "([](auto &&${primary}, auto &&${secondary}) { return ${body}; }, ${primary}, strides, ${secondary})"
+    )
+    VarDecl = as_fmt("auto&& {name} = {init};")
+    Assign = as_fmt("{left} = {right};")
+    Kernel = as_mako(
+        """struct ${id_} {
     GT_FUNCTION auto operator()() const {
         return [](auto && ${_this_node.primary.name}, auto &&strides${''.join(f', auto&& {s.name}' for s in _this_node.secondaries)}) {
             ${'\\n            '.join(body)}
         };
     }
-};''')
+};"""
+    )
     Temporary = as_fmt(
-        'auto {name} = make_simple_tmp_storage<{dtype}>(d.{location_type}, d.k, alloc);')
-    Computation = as_mako("""#pragma once
+        "auto {name} = make_simple_tmp_storage<{dtype}>(d.{location_type}, d.k, alloc);"
+    )
+    Computation = as_mako(
+        """#pragma once
 #include <gridtools/usid/${ backend }_helpers.hpp>
 namespace gridtools::usid::${ backend }::${ name }_impl_ {
 ${'\\n'.join(f'struct {f}_tag;' for f in connectivities + params + [t.name for t in _this_node.temporaries])}
@@ -70,12 +79,15 @@ inline constexpr auto ${ name } = [](domain d${ ''.join(f', auto&& {c}' for c in
 };
 }
 using gridtools::usid::${ backend }::${ name }_impl_::${ name };
-""")
+"""
+    )
 
 
 def _impl(backend):
-    return lambda src: codegen.format_source('cpp', _Generator.apply(src, backend=backend), style='LLVM')
+    return lambda src: codegen.format_source(
+        "cpp", _Generator.apply(src, backend=backend), style="LLVM"
+    )
 
 
-naive = _impl('naive')
-gpu = _impl('gpu')
+naive = _impl("naive")
+gpu = _impl("gpu")

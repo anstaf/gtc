@@ -16,7 +16,8 @@
 
 import enum
 from typing import List
-from eve import Node, Str, Int, Bool, StrEnum
+
+from eve import Bool, Int, Node, Str, StrEnum
 from gtc import common
 
 
