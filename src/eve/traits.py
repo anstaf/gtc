@@ -22,8 +22,8 @@ from __future__ import annotations
 import pydantic
 
 from . import concepts, iterators
-from ._typing import Any, Dict, Type
 from .type_definitions import SymbolName
+from .typingx import Any, Dict, Type
 
 
 class SymbolTableTrait(concepts.Model):

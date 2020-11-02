@@ -40,7 +40,8 @@ from boltons.strutils import (  # noqa: F401
 )
 from boltons.typeutils import classproperty  # noqa: F401
 
-from ._typing import (
+from .type_definitions import DELETE, NOTHING
+from .typingx import (
     Any,
     Callable,
     Iterable,
@@ -54,7 +55,6 @@ from ._typing import (
     Type,
     Union,
 )
-from .type_definitions import DELETE, NOTHING
 
 
 def filter_map(

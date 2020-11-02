@@ -21,8 +21,8 @@ import collections.abc
 from typing import Iterator
 
 from . import concepts
-from ._typing import Any, Generator, List, Optional
 from .type_definitions import Enum
+from .typingx import Any, Generator, List, Optional
 
 
 class TraversalOrder(Enum):
