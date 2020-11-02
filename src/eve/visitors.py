@@ -23,7 +23,17 @@ import operator
 
 from . import concepts, type_definitions
 from .concepts import NOTHING
-from .typingx import Any, Callable, Collection, Iterable, MutableSequence, MutableSet, Tuple, Union
+from .typingx import (
+    Any,
+    Callable,
+    Collection,
+    Dict,
+    Iterable,
+    MutableSequence,
+    MutableSet,
+    Tuple,
+    Union,
+)
 
 
 class NodeVisitor:
@@ -137,9 +147,7 @@ class NodeTranslator(NodeVisitor):
 
     """
 
-    def __init__(self, *, memo: dict = None, **kwargs: Any) -> None:
-        assert memo is None or isinstance(memo, dict)
-        self.memo = memo or {}
+    _memo_dict_: Dict[int, Any]
 
     def generic_visit(self, node: concepts.TreeNode, **kwargs: Any) -> Any:
         result: Any = None
@@ -171,7 +179,9 @@ class NodeTranslator(NodeVisitor):
                 )
 
         else:
-            result = copy.deepcopy(node, memo=self.memo)
+            if not hasattr(self, "_memo_dict_"):
+                self._memo_dict_ = {}
+            result = copy.deepcopy(node, memo=self._memo_dict_)
 
         return result
 
