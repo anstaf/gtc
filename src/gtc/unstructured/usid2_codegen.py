@@ -40,12 +40,10 @@ class _Generator(codegen.TemplatedGenerator):
     Literal = as_mako("${dtype}{${value}}")
     BinaryOp = as_fmt("({left} {op} {right})")
     FieldAccess = as_fmt("field<{name}_tag>({location})")
-    VarAccess = as_fmt("{name}")
-    NeighborReduction = as_mako(
+    NeighborReduce = as_mako(
         "${op}_neighbors<${dtype}, ${connectivity}_tag, ${max_neighbors}, ${has_skip_values.lower()}>"
-        + "([](auto &&${primary}, auto &&${secondary}) { return ${body}; }, ${primary}, strides, ${secondary})"
+        + "([](auto &&${primary}, auto &&${secondary}) { return ${body}; }, ${primary}, strides, ${connectivity})"
     )
-    VarDecl = as_fmt("auto&& {name} = {init};")
     Assign = as_fmt("{left} = {right};")
     Kernel = as_mako(
         """struct ${id_} {

@@ -14,11 +14,11 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-import enum
 from typing import List
 
-from eve import Bool, Int, Node, Str, StrEnum
+from eve import Bool, Int, Node, Str
 from gtc import common
+from gtc.unstructured.gtir2 import ReduceOperator
 
 
 class Sid(Node):
@@ -54,25 +54,13 @@ class FieldAccess(Expr):
     location: Str
 
 
-class VarAccess(Expr):
-    name: Str
-
-
 class BinaryOp(Expr):
     op: common.BinaryOperator
     left: Expr
     right: Expr
 
 
-@enum.unique
-class ReduceOperator(StrEnum):
-    ADD = "sum"
-    MUL = "mul"
-    MAX = "max"
-    MIN = "min"
-
-
-class NeighborReduction(Expr):
+class NeighborReduce(Expr):
     op: ReduceOperator
     dtype: Str
     connectivity: Str
@@ -83,16 +71,7 @@ class NeighborReduction(Expr):
     body: Expr
 
 
-class Stmt(Node):
-    pass
-
-
-class VarDecl(Stmt):
-    name: Str
-    init: Expr
-
-
-class Assign(Stmt):
+class Assign(Node):
     left: FieldAccess
     right: Expr
 
@@ -101,7 +80,7 @@ class Kernel(Node):
     location_type: Str
     primary: Composite
     secondaries: List[Composite]
-    body: List[Stmt]
+    body: List[Assign]
 
 
 class Computation(Node):
