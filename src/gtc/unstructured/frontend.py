@@ -15,7 +15,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 
-from compose import compose
+from toolz.functoolz import compose
 
 from gtc.unstructured import gtir_to_usid2, py_to_gtir2, usid2_codegen
 

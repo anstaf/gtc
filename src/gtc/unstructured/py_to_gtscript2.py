@@ -19,7 +19,7 @@ import inspect
 import textwrap
 from typing import List
 
-from compose import compose
+from toolz.functoolz import compose
 
 import eve
 from gtc.unstructured import gtscript_ast2
