@@ -46,38 +46,43 @@ class _Generator(codegen.TemplatedGenerator):
     )
     Assign = as_fmt("{left} = {right};")
     Kernel = as_mako(
-        """struct ${id_} {
-    GT_FUNCTION auto operator()() const {
-        return [](auto && ${_this_node.primary.name}, auto &&strides${''.join(f', auto&& {s.name}' for s in _this_node.secondaries)}) {
-            ${'\\n            '.join(body)}
+        """
+        struct ${id_} {
+            GT_FUNCTION auto operator()() const {
+                return [](auto && ${_this_node.primary.name},
+                    auto &&strides${''.join(f', auto&& {s.name}' for s in _this_node.secondaries)}) {
+                    ${''.join(body)}
+                };
+            }
         };
-    }
-};"""
+        """
     )
     Temporary = as_fmt(
         "auto {name} = make_simple_tmp_storage<{dtype}>(d.{location_type}, d.k, alloc);"
     )
     Computation = as_mako(
-        """#pragma once
-#include <gridtools/usid/${ backend }_helpers.hpp>
-namespace gridtools::usid::${ backend }::${ name }_impl_ {
-${'\\n'.join(f'struct {f}_tag;' for f in connectivities + params + [t.name for t in _this_node.temporaries])}
-${'\\n'.join(kernels)}
-inline constexpr auto ${ name } = [](domain d${ ''.join(f', auto&& {c}' for c in connectivities) }) {
-    ${'\\n    '.join(f'static_assert(is_sid<decltype({c}(traits_t()))>());' for c in connectivities)}
-    return[d = std::move(d)${ ''.join(f', {c} = sid::rename_dimensions<dim::n, {c}_tag>(std::forward<decltype({c})>({c})(traits_t()))' for c in connectivities) }]
-    (${ ', '.join(f'auto&& {p}' for p in params)}) {
-        ${'\\n        '.join(f'static_assert(is_sid<decltype({p})>());' for p in params)}
-% if len(temporaries) > 0:
-        auto alloc = make_allocator();
-        ${'\\n        '.join(temporaries)}
-% endif
-        ${'\\n        '.join(kernel_calls)}
-    };
-};
-}
-using gridtools::usid::${ backend }::${ name }_impl_::${ name };
-"""
+        """
+        #pragma once
+        #include <gridtools/usid/${ backend }_helpers.hpp>
+        namespace gridtools::usid::${ backend }::${ name }_impl_ {
+        ${''.join(f'struct {f}_tag;' for f in connectivities + params + [t.name for t in _this_node.temporaries])}
+        ${''.join(kernels)}
+        inline constexpr auto ${name} = [](domain d${''.join(f', auto&& {c}' for c in connectivities)}) {
+            ${''.join(f'static_assert(is_sid<decltype({c}(traits_t()))>());' for c in connectivities)}
+            return[d = std::move(d)
+                ${ ''.join(f', {c} = sid::rename_dimensions<dim::n, {c}_tag>(std::forward<decltype({c})>({c})(traits_t()))' for c in connectivities) }]
+                (${ ','.join(f'auto&& {p}' for p in params)}) {
+                ${''.join(f'static_assert(is_sid<decltype({p})>());' for p in params)}
+        % if len(temporaries) > 0:
+                auto alloc = make_allocator();
+                ${''.join(temporaries)}
+        % endif
+                ${''.join(kernel_calls)}
+            };
+        };
+        }
+        using gridtools::usid::${ backend }::${ name }_impl_::${ name };
+        """
     )
 
 
