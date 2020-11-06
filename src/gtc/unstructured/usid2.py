@@ -20,11 +20,17 @@ from gtc import common
 from gtc.unstructured.gtir2 import ReduceOperator
 
 
-class Sid(Node):
+class Connectivity(Node):
+    name: Str
+    max_neighbors: Int
+    has_skip_values: Bool
+
+
+class Field(Node):
     name: Str
 
 
-class SparseField(Sid):
+class SparseField(Field):
     connectivity: Str
 
 
@@ -36,7 +42,7 @@ class Temporary(Node):
 
 class Composite(Node):
     name: Str
-    items: FrozenList[Sid]
+    items: FrozenList[Str]
 
 
 class Expr(Node):
@@ -45,7 +51,6 @@ class Expr(Node):
 
 class Literal(Expr):
     value: Str
-    dtype: Str
 
 
 class FieldAccess(Expr):
@@ -63,8 +68,6 @@ class NeighborReduce(Expr):
     op: ReduceOperator
     dtype: Str
     connectivity: Str
-    max_neighbors: Int
-    has_skip_values: Bool
     primary: Str
     secondary: Str
     body: Expr
@@ -84,7 +87,7 @@ class Kernel(Node):
 
 class Computation(Node):
     name: Str
-    connectivities: FrozenList[Str]
-    params: FrozenList[Str]
+    connectivities: FrozenList[Connectivity]
+    args: FrozenList[Field]
     temporaries: FrozenList[Temporary]
     kernels: FrozenList[Kernel]

@@ -23,10 +23,8 @@ from gtc.unstructured import usid2
 
 
 class _KernelCallGenerator(codegen.TemplatedGenerator):
-    Sid = as_fmt("{name}")
-    SparseField = as_fmt("sid::rename_dimensions<dim::s, {connectivity}_tag>({name})")
     Composite = as_mako(
-        "sid::composite::make<${', '.join(f'{i.name}_tag' for i in _this_node.items)}>(${', '.join(items)})"
+        "make_composite<${','.join(f'{i}_tag' for i in items)}>(${','.join(items)})"
     )
     Kernel = as_mako(
         "call_kernel<${id_}>(d.${location_type}${''.join(f', {c}' for c in [primary] + secondaries)});"
@@ -39,11 +37,11 @@ class _Generator(codegen.TemplatedGenerator):
             node, kernel_calls=tuple(_KernelCallGenerator.apply(k) for k in node.kernels), **kwargs
         )
 
-    Literal = as_mako("${dtype}{${value}}")
+    Literal = as_mako("${value}")
     BinaryOp = as_fmt("({left} {op} {right})")
     FieldAccess = as_fmt("field<{name}_tag>({location})")
     NeighborReduce = as_mako(
-        "${op}_neighbors<${dtype}, ${connectivity}_tag, ${max_neighbors}, ${has_skip_values.lower()}>"
+        "${op}_neighbors<${dtype}, ${connectivity}_tag>"
         + "([](auto &&${primary}, auto &&${secondary}) { return ${body}; }, ${primary}, strides, ${connectivity})"
     )
     Assign = as_fmt("{left} = {right};")
@@ -62,19 +60,31 @@ class _Generator(codegen.TemplatedGenerator):
     Temporary = as_fmt(
         "auto {name} = make_simple_tmp_storage<{dtype}>(d.{location_type}, d.k, alloc);"
     )
+    Connectivity = as_mako(
+        "struct ${name}_tag: connectivity<${max_neighbors}, ${has_skip_values.lower()}> {};"
+    )
+    Field = as_mako("struct ${name}_tag {};")
+    SparseField = as_mako("struct ${name}_tag: sparse_field<${connectivity}_tag> {};")
     Computation = as_mako(
-        """
-        #pragma once
-        #include <gridtools/usid/${ backend }_helpers.hpp>
-        namespace gridtools::usid::${ backend }::${ name }_impl_ {
-        ${''.join(f'struct {f}_tag;' for f in connectivities + params + [t.name for t in _this_node.temporaries])}
+        """<%
+
+            ts = tuple(e.name for e in _this_node.temporaries)
+            cs = tuple(e.name for e in _this_node.connectivities)
+            ps = tuple(e.name for e in _this_node.args)
+
+        %>#pragma once
+        #include <gridtools/usid/${backend}_helpers.hpp>
+        namespace gridtools::usid::${backend}::${name}_impl_ {
+        ${''.join(connectivities)}
+        ${''.join(args)}
+        ${''.join(f'struct {t}_tag {{}};' for t in ts)}
         ${''.join(kernels)}
-        inline constexpr auto ${name} = [](domain d${''.join(f', auto&& {c}' for c in connectivities)}) {
-            ${''.join(f'static_assert(is_sid<decltype({c}(traits_t()))>());' for c in connectivities)}
+        inline constexpr auto ${name} = [](domain d${''.join(f', auto&& {c}' for c in cs)}) {
+            ${''.join(f'static_assert(is_sid<decltype({c}(traits_t()))>());' for c in cs)}
             return[d = std::move(d)
-                ${ ''.join(f', {c} = sid::rename_dimensions<dim::n, {c}_tag>(std::forward<decltype({c})>({c})(traits_t()))' for c in connectivities) }]
-                (${ ','.join(f'auto&& {p}' for p in params)}) {
-                ${''.join(f'static_assert(is_sid<decltype({p})>());' for p in params)}
+                ${ ''.join(f', {c} = sid::rename_dimensions<dim::n, {c}_tag>(std::forward<decltype({c})>({c})(traits_t()))' for c in cs) }]
+                (${ ','.join(f'auto&& {p}' for p in ps)}) {
+                ${''.join(f'static_assert(is_sid<decltype({p})>());' for p in ps)}
         % if len(temporaries) > 0:
                 auto alloc = make_allocator();
                 ${''.join(temporaries)}
@@ -83,7 +93,7 @@ class _Generator(codegen.TemplatedGenerator):
             };
         };
         }
-        using gridtools::usid::${ backend }::${ name }_impl_::${ name };
+        using gridtools::usid::${backend}::${name}_impl_::${name};
         """
     )
 

@@ -15,7 +15,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 import enum
-from typing import Union
+from typing import Any, Union
 
 from eve import Bool, Int, Node, Str, StrEnum
 from eve.typingx import FrozenList
@@ -64,7 +64,7 @@ class BinaryOp(Expr):
 
 
 class Literal(Expr):
-    value: Str
+    value: Any
     dtype: common.DataType
 
 

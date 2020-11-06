@@ -14,7 +14,10 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
+import functools
 import itertools
+
+from toolz.functoolz import compose
 
 import eve
 from gtc import common
@@ -29,6 +32,14 @@ _C_TYPES = {
     common.DataType.BOOLEAN: "bool",
 }
 
+_LITERAL_CONVERTERS = {
+    common.DataType.FLOAT64: compose(str, float),
+    common.DataType.FLOAT32: lambda x: str(float(x)) + "f",
+    common.DataType.INT32: compose(str, int),
+    common.DataType.UINT32: lambda x: str(int(x)) + "u",
+    common.DataType.BOOLEAN: lambda x: str(bool(x)).lower(),
+}
+
 
 def _loc2str(x: common.LocationType):
     return x.name.lower()
@@ -36,33 +47,32 @@ def _loc2str(x: common.LocationType):
 
 class _PrimaryCompositeExtractor(eve.NodeVisitor):
     def visit_Literal(self, src: gtir2.Literal, **kwargs):
-        return {}
+        return set()
 
-    def visit_FieldAccess(self, src: gtir2.FieldAccess, primary, **kwargs):
-        return {src.name: usid2.Sid(name=src.name)} if src.location == primary else {}
+    def visit_FieldAccess(self, src: gtir2.FieldAccess, primary):
+        return {src.name} if src.location == primary else set()
 
-    def visit_SparseFieldAccess(self, src: gtir2.SparseFieldAccess, primary, connectivity):
+    def visit_SparseFieldAccess(self, src: gtir2.SparseFieldAccess, primary):
         assert src.primary == primary
-        return {src.name: usid2.SparseField(name=src.name, connectivity=connectivity)}
+        return {src.name}
 
     def visit_BinaryOp(self, src: gtir2.BinaryOp, **kwargs):
-        return {**self.visit(src.left, **kwargs), **self.visit(src.right, **kwargs)}
+        return self.visit(src.left, **kwargs) | self.visit(src.right, **kwargs)
 
-    def visit_NeighborReduce(self, src: gtir2.NeighborReduce, primary, **kwargs):
+    def visit_NeighborReduce(self, src: gtir2.NeighborReduce, primary):
         assert src.location.primary == primary
-        return {
-            src.location.connectivity: usid2.Sid(name=src.location.connectivity),
-            **self.visit(src.body, primary=primary, connectivity=src.location.connectivity),
-        }
+        return {src.location.connectivity} | self.visit(src.body, primary=primary)
 
     def visit_Assign(self, src: gtir2.Assign, **kwargs):
-        return {**self.visit(src.left, **kwargs), **self.visit(src.right, **kwargs)}
+        return self.visit(src.left, **kwargs) | self.visit(src.right, **kwargs)
 
     def visit_Stencil(self, src: gtir2.Stencil):
-        items = {}
-        for s in src.body:
-            items.update(self.visit(s, primary=src.location.name))
-        return usid2.Composite(name=src.location.name, items=tuple(items.values()))
+        return usid2.Composite(
+            name=src.location.name,
+            items=functools.reduce(
+                lambda acc, e: acc | self.visit(e, primary=src.location.name), src.body, set()
+            ),
+        )
 
 
 _extract_primary_composite = _PrimaryCompositeExtractor().visit
@@ -70,16 +80,16 @@ _extract_primary_composite = _PrimaryCompositeExtractor().visit
 
 class _SecondaryCompositeExtractor(eve.NodeVisitor):
     def visit_SparseFieldAccess(self, src: gtir2.SparseFieldAccess, **kwargs):
-        return {}
+        return set()
 
     def visit_Literal(self, src: gtir2.Literal, **kwargs):
-        return {}
+        return set()
 
     def visit_FieldAccess(self, src: gtir2.FieldAccess, secondary, **kwargs):
-        return {src.name: usid2.Sid(name=src.name)} if src.location == secondary else {}
+        return {src.name} if src.location == secondary else {}
 
     def visit_BinaryOp(self, src: gtir2.BinaryOp, **kwargs):
-        return {**self.visit(src.left, **kwargs), **self.visit(src.right, **kwargs)}
+        return self.visit(src.left, **kwargs) | self.visit(src.right, **kwargs)
 
     def visit_NeighborReduce(self, src: gtir2.NeighborReduce):
         return {src.location.connectivity: self.visit(src.body, secondary=src.location.name)}
@@ -88,13 +98,13 @@ class _SecondaryCompositeExtractor(eve.NodeVisitor):
 _extract_secondary_composite = _SecondaryCompositeExtractor().visit
 
 
-def _merge_dicts_of_dicts(*srcs):
+def _merge_dicts_of_sets(*srcs):
     res = {}
     for k in set(itertools.chain(*srcs)):
-        res[k] = {}
+        res[k] = set()
         for src in srcs:
             if k in src:
-                res[k].update(src[k])
+                res[k] = res[k] | src[k]
     return res
 
 
@@ -112,12 +122,12 @@ class _SecondaryCompositesExtractor(eve.NodeVisitor):
         return _extract_secondary_composite(src)
 
     def visit_BinaryOp(self, src: gtir2.BinaryOp):
-        return _merge_dicts_of_dicts(self.visit(src.left), self.visit(src.right))
+        return _merge_dicts_of_sets(self.visit(src.left), self.visit(src.right))
 
     def visit_Stencil(self, src: gtir2.Stencil):
         return tuple(
-            usid2.Composite(name=name, items=list(sids.values()))
-            for name, sids in _merge_dicts_of_dicts(*(self.visit(e) for e in src.body)).items()
+            usid2.Composite(name=name, items=items)
+            for name, items in _merge_dicts_of_sets(*(self.visit(e) for e in src.body)).items()
         )
 
 
@@ -125,57 +135,62 @@ _extract_secondary_composites = _SecondaryCompositesExtractor().visit
 
 
 class _Visitor(eve.NodeVisitor):
-    def visit_FieldAccess(self, src: gtir2.FieldAccess, **kwargs):
+    def visit_FieldAccess(self, src: gtir2.FieldAccess):
         return usid2.FieldAccess(name=src.name, location=src.location)
 
-    def visit_SparseFieldAccess(self, src: gtir2.SparseFieldAccess, **kwargs):
+    def visit_SparseFieldAccess(self, src: gtir2.SparseFieldAccess):
         return usid2.FieldAccess(name=src.name, location=src.primary)
 
-    def visit_Literal(self, src: gtir2.Literal, **kwargs):
-        return usid2.Literal(value=src.value, dtype=_C_TYPES[src.dtype])
+    def visit_Literal(self, src: gtir2.Literal):
+        return usid2.Literal(value=_LITERAL_CONVERTERS[src.dtype](src.value))
 
-    def visit_BinaryOp(self, src: gtir2.BinaryOp, **kwargs):
-        return usid2.BinaryOp(
-            op=src.op, left=self.visit(src.left, **kwargs), right=self.visit(src.right, **kwargs)
-        )
+    def visit_BinaryOp(self, src: gtir2.BinaryOp):
+        return usid2.BinaryOp(op=src.op, left=self.visit(src.left), right=self.visit(src.right))
 
-    def visit_NeighborReduce(self, src: gtir2.NeighborReduce, tbl):
-        connectivity = tbl[src.location.connectivity]
+    def visit_NeighborReduce(self, src: gtir2.NeighborReduce):
         return usid2.NeighborReduce(
             op=src.op,
             dtype=_C_TYPES[src.dtype],
-            connectivity=connectivity.name,
-            max_neighbors=connectivity.max_neighbors,
-            has_skip_values=connectivity.has_skip_values,
+            connectivity=src.location.connectivity,
             primary=src.location.primary,
             secondary=src.location.name,
             body=self.visit(src.body),
         )
 
-    def visit_Assign(self, src: gtir2.Assign, tbl):
-        return usid2.Assign(left=self.visit(src.left), right=self.visit(src.right, tbl=tbl))
+    def visit_Assign(self, src: gtir2.Assign):
+        return usid2.Assign(left=self.visit(src.left), right=self.visit(src.right))
 
-    def visit_Stencil(self, src: gtir2.Stencil, tbl):
+    def visit_Stencil(self, src: gtir2.Stencil):
         return usid2.Kernel(
             location_type=_loc2str(src.location.location_type),
             primary=_extract_primary_composite(src),
             secondaries=_extract_secondary_composites(src),
-            body=tuple(self.visit(e, tbl=tbl) for e in src.body),
+            body=tuple(self.visit(e) for e in src.body),
         )
 
+    def visit_Connectivity(self, src: gtir2.Connectivity):
+        return usid2.Connectivity(
+            name=src.name, max_neighbors=src.max_neighbors, has_skip_values=src.has_skip_values
+        )
+
+    def visit_Field(self, src: gtir2.Field):
+        return usid2.Field(name=src.name)
+
+    def visit_SparseField(self, src: gtir2.SparseField):
+        return usid2.SparseField(name=src.name, connectivity=src.connectivity)
+
     def visit_Computation(self, src: gtir2.Computation):
-        tbl = {e.name: e for e in src.connectivities + src.args + src.temporaries}
         return usid2.Computation(
             name=src.name,
-            connectivities=tuple(e.name for e in src.connectivities),
-            params=tuple(e.name for e in src.args),
+            connectivities=tuple(self.visit(e) for e in src.connectivities),
+            args=tuple(self.visit(e) for e in src.args),
             temporaries=tuple(
                 usid2.Temporary(
                     name=e.name, location_type=_loc2str(e.location_type), dtype=_C_TYPES[e.dtype]
                 )
                 for e in src.temporaries
             ),
-            kernels=tuple(self.visit(e, tbl=tbl) for e in src.stencils),
+            kernels=tuple(self.visit(e) for e in src.stencils),
         )
 
 

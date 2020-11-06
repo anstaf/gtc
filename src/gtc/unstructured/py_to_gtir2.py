@@ -127,7 +127,7 @@ _PY_TYPE_TO_DATA_TYPE = {
 
 class _Visitor(eve.NodeVisitor):
     def visit_Constant(self, src: gtscript_ast2.Constant, **kwargs):
-        return gtir2.Literal(value=str(src.value), dtype=_PY_TYPE_TO_DATA_TYPE[type(src.value)])
+        return gtir2.Literal(value=src.value, dtype=_PY_TYPE_TO_DATA_TYPE[type(src.value)])
 
     def visit_Call(self, src: gtscript_ast2.Call, tbl, location):
         assert isinstance(location, gtir2.PrimaryLocation)
