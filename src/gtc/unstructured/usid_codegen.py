@@ -275,7 +275,7 @@ class UsidCodeGenerator(codegen.TemplatedGenerator):
 class UsidGpuCodeGenerator(UsidCodeGenerator):
 
     cache_allocator_ = (
-        "gridtools::sid::device::make_cached_allocator(&gridtools::cuda_util::cuda_malloc<char[]>);"
+        "gridtools::sid::make_cached_allocator(&gridtools::cuda_util::cuda_malloc<char[]>);"
     )
 
     headers_ = UsidCodeGenerator.headers_ + [
@@ -318,7 +318,7 @@ class UsidGpuCodeGenerator(UsidCodeGenerator):
                 return;
             % if len(prim_sid.entries) > 0:
             auto ${ prim_sid.ptr_name } = ${ prim_sid.origin_name }();
-            gridtools::sid::shift(${ prim_sid.ptr_name }, gridtools::device::at_key<
+            gridtools::sid::shift(${ prim_sid.ptr_name }, gridtools::host_device::at_key<
                 ${ _this_generator.LOCATION_TYPE_TO_STR[prim_sid.location.elements[-1]] }
                 >(${ prim_sid.strides_name }), idx);
             % endif
@@ -354,7 +354,7 @@ class UsidNaiveCodeGenerator(UsidCodeGenerator):
             for(std::size_t idx = 0; idx < gridtools::next::connectivity::size(${ prim_conn.name }); idx++) {
                 % if len(prim_sid.entries) > 0:
                 auto ${ prim_sid.ptr_name } = ${ prim_sid.origin_name }();
-                gridtools::sid::shift(${ prim_sid.ptr_name }, gridtools::at_key<
+                gridtools::sid::shift(${ prim_sid.ptr_name }, gridtools::host_device::at_key<
                     ${ _this_generator.LOCATION_TYPE_TO_STR[prim_sid.location.elements[-1]] }
                     >(${ prim_sid.strides_name }), idx);
                 % endif
