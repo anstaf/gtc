@@ -23,8 +23,8 @@ V2E = typing.NewType("V2E", Connectivity[Vertex, Edge, 7, True])
 
 
 def nabla(
-    e2v: E2V,
     v2e: V2E,
+    e2v: E2V,
     S_MXX: Field[Edge, dtype],
     S_MYY: Field[Edge, dtype],
     pp: Field[Vertex, dtype],
