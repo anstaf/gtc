@@ -62,7 +62,7 @@ class _PrimaryCompositeExtractor(eve.NodeVisitor):
         items = {}
         for s in src.body:
             items.update(self.visit(s, primary=src.location.name))
-        return usid2.Composite(name=src.location.name, items=list(items.values()))
+        return usid2.Composite(name=src.location.name, items=tuple(items.values()))
 
 
 _extract_primary_composite = _PrimaryCompositeExtractor().visit
@@ -115,10 +115,10 @@ class _SecondaryCompositesExtractor(eve.NodeVisitor):
         return _merge_dicts_of_dicts(self.visit(src.left), self.visit(src.right))
 
     def visit_Stencil(self, src: gtir2.Stencil):
-        return [
+        return tuple(
             usid2.Composite(name=name, items=list(sids.values()))
             for name, sids in _merge_dicts_of_dicts(*(self.visit(e) for e in src.body)).items()
-        ]
+        )
 
 
 _extract_secondary_composites = _SecondaryCompositesExtractor().visit
@@ -160,22 +160,22 @@ class _Visitor(eve.NodeVisitor):
             location_type=_loc2str(src.location.location_type),
             primary=_extract_primary_composite(src),
             secondaries=_extract_secondary_composites(src),
-            body=[self.visit(e, tbl=tbl) for e in src.body],
+            body=tuple(self.visit(e, tbl=tbl) for e in src.body),
         )
 
     def visit_Computation(self, src: gtir2.Computation):
         tbl = {e.name: e for e in src.connectivities + src.args + src.temporaries}
         return usid2.Computation(
             name=src.name,
-            connectivities=[e.name for e in src.connectivities],
-            params=[e.name for e in src.args],
-            temporaries=[
+            connectivities=tuple(e.name for e in src.connectivities),
+            params=tuple(e.name for e in src.args),
+            temporaries=tuple(
                 usid2.Temporary(
                     name=e.name, location_type=_loc2str(e.location_type), dtype=_C_TYPES[e.dtype]
                 )
                 for e in src.temporaries
-            ],
-            kernels=[self.visit(e, tbl=tbl) for e in src.stencils],
+            ),
+            kernels=tuple(self.visit(e, tbl=tbl) for e in src.stencils),
         )
 
 

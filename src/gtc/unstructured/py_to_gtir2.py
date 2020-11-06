@@ -14,6 +14,7 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
+import collections
 import functools
 import inspect
 import sys
@@ -48,7 +49,7 @@ def _is_legit_annotation(src):
 
 
 def _extract_params(fun):
-    res = [p for _, p in inspect.signature(fun).parameters.items()]
+    res = tuple(p for _, p in inspect.signature(fun).parameters.items())
     for p in res:
         if not _is_legit_annotation(p.annotation):
             raise RuntimeError(f"unexpected type annotation: {p}")
@@ -190,7 +191,7 @@ class _Visitor(eve.NodeVisitor):
             assert isinstance(src.index, gtscript_ast2.Name)
             assert src.index.name == res.location
         elif isinstance(res, gtir2.SparseFieldAccess):
-            assert isinstance(src.index, list)
+            assert isinstance(src.index, collections.Sequence)
             assert len(src.index) == 2
             assert src.index[0].name == res.primary
             assert src.index[1].name == res.secondary
@@ -212,15 +213,15 @@ class _Visitor(eve.NodeVisitor):
         right = self.visit(src.value, tbl=tbl, location=primary)
         return (
             gtir2.Assign(left=left, right=right),
-            []
+            ()
             if left.name in tbl
-            else [
+            else (
                 gtir2.Field(
                     name=left.name,
                     location_type=primary.location_type,
                     dtype=_deduce_expr_type(right, tbl),
-                )
-            ],
+                ),
+            ),
         )
 
     def visit_With(self, src: gtscript_ast2.With, tbl):
@@ -252,32 +253,34 @@ class _Visitor(eve.NodeVisitor):
             assign, temporaries = self.visit(
                 stmt, tbl={**tbl, **{t.name: t for t in acc[1]}}, primary=location
             )
-            return acc[0] + [assign], acc[1] + temporaries
+            return acc[0] + (assign,), acc[1] + temporaries
 
-        body, temporaries = functools.reduce(folder, src.body, ([], []))
+        body, temporaries = functools.reduce(folder, src.body, ((), ()))
         return gtir2.Stencil(loop_order=loop_order, location=location, body=body), temporaries
 
     def visit_Function(self, src: gtscript_ast2.Function, fun_params):
-        connectivity_params = [p for p in fun_params if _is_conncetivity_annotation(p.annotation)]
+        connectivity_params = tuple(
+            p for p in fun_params if _is_conncetivity_annotation(p.annotation)
+        )
         connectivity_type_to_name = dict((p.annotation, p.name) for p in connectivity_params)
         if len(connectivity_params) > len(connectivity_type_to_name):
             raise RuntimeError(
                 "the types of the conncetivities within computation should be all different"
             )
-        connectivities = [_extract_connectivity(p) for p in connectivity_params]
-        args = [
+        connectivities = tuple(_extract_connectivity(p) for p in connectivity_params)
+        args = tuple(
             _extract_arg(p, connectivity_type_to_name)
             for p in fun_params
             if not _is_conncetivity_annotation(p.annotation)
-        ]
+        )
         assert all(isinstance(s, gtscript_ast2.With) for s in src.body)
         tbl = {e.name: e for e in connectivities + args}
 
         def folder(acc, stmt):
             stencil, temporaries = self.visit(stmt, tbl={**tbl, **{t.name: t for t in acc[1]}})
-            return acc[0] + [stencil], acc[1] + temporaries
+            return acc[0] + (stencil,), acc[1] + temporaries
 
-        stencils, temporaries = functools.reduce(folder, src.body, ([], []))
+        stencils, temporaries = functools.reduce(folder, src.body, ((), ()))
         return gtir2.Computation(
             name=src.name,
             connectivities=connectivities,

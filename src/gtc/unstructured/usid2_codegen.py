@@ -14,6 +14,8 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
+from toolz.functoolz import compose
+
 from eve import codegen
 from eve.codegen import FormatTemplate as as_fmt
 from eve.codegen import MakoTemplate as as_mako
@@ -34,7 +36,7 @@ class _KernelCallGenerator(codegen.TemplatedGenerator):
 class _Generator(codegen.TemplatedGenerator):
     def visit_Computation(self, node: usid2.Computation, **kwargs):
         return self.generic_visit(
-            node, kernel_calls=[_KernelCallGenerator.apply(k) for k in node.kernels], **kwargs
+            node, kernel_calls=tuple(_KernelCallGenerator.apply(k) for k in node.kernels), **kwargs
         )
 
     Literal = as_mako("${dtype}{${value}}")
@@ -87,8 +89,9 @@ class _Generator(codegen.TemplatedGenerator):
 
 
 def _impl(backend):
-    return lambda src: codegen.format_source(
-        "cpp", _Generator.apply(src, backend=backend), style="LLVM"
+    return compose(
+        lambda x: codegen.format_source("cpp", x, style="LLVM"),
+        lambda x: _Generator.apply(x, backend=backend),
     )
 
 

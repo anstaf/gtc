@@ -14,9 +14,8 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-from typing import List
-
 from eve import Bool, Int, Node, Str
+from eve.typingx import FrozenList
 from gtc import common
 from gtc.unstructured.gtir2 import ReduceOperator
 
@@ -37,7 +36,7 @@ class Temporary(Node):
 
 class Composite(Node):
     name: Str
-    items: List[Sid]
+    items: FrozenList[Sid]
 
 
 class Expr(Node):
@@ -79,13 +78,13 @@ class Assign(Node):
 class Kernel(Node):
     location_type: Str
     primary: Composite
-    secondaries: List[Composite]
-    body: List[Assign]
+    secondaries: FrozenList[Composite]
+    body: FrozenList[Assign]
 
 
 class Computation(Node):
     name: Str
-    connectivities: List[Str]
-    params: List[Str]
-    temporaries: List[Temporary]
-    kernels: List[Kernel]
+    connectivities: FrozenList[Str]
+    params: FrozenList[Str]
+    temporaries: FrozenList[Temporary]
+    kernels: FrozenList[Kernel]

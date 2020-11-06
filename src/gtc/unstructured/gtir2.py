@@ -15,9 +15,10 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 import enum
-from typing import List, Union
+from typing import Union
 
 from eve import Bool, Int, Node, Str, StrEnum
+from eve.typingx import FrozenList
 from gtc import common
 
 
@@ -103,12 +104,12 @@ class PrimaryLocation(Node):
 class Stencil(Node):
     loop_order: common.LoopOrder
     location: PrimaryLocation
-    body: List[Assign]
+    body: FrozenList[Assign]
 
 
 class Computation(Node):
     name: Str
-    connectivities: List[Connectivity]
-    args: List[Union[Field, SparseField]]
-    temporaries: List[Field]
-    stencils: List[Stencil]
+    connectivities: FrozenList[Connectivity]
+    args: FrozenList[Union[Field, SparseField]]
+    temporaries: FrozenList[Field]
+    stencils: FrozenList[Stencil]

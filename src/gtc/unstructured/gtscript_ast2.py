@@ -14,9 +14,10 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-from typing import Any, List, Optional, Union
+from typing import Any, Optional, Union
 
 from eve import Node, Str
+from eve.typingx import FrozenList
 
 
 class Stmt(Node):
@@ -33,22 +34,22 @@ class Name(Expr):
 
 class Subscript(Expr):
     value: Name
-    index: Union[Name, List[Name]]
+    index: Union[Name, FrozenList[Name]]
 
 
 class Call(Expr):
     func: Name
-    args: List[Expr]
+    args: FrozenList[Expr]
 
 
 class Comprehension(Node):
-    target: Union[Name, List[Name]]
+    target: Union[Name, FrozenList[Name]]
     iterable: Expr
 
 
 class GeneratorExp(Expr):
     elt: Expr
-    generators: List[Comprehension]
+    generators: FrozenList[Comprehension]
 
 
 class BinOp(Expr):
@@ -62,7 +63,7 @@ class Constant(Expr):
 
 
 class Assign(Stmt):
-    targets: List[Expr]
+    targets: FrozenList[Expr]
     value: Expr
 
 
@@ -72,10 +73,10 @@ class WithItem(Node):
 
 
 class With(Stmt):
-    items: List[WithItem]
-    body: List[Stmt]
+    items: FrozenList[WithItem]
+    body: FrozenList[Stmt]
 
 
 class Function(Node):
     name: Str
-    body: List[Stmt]
+    body: FrozenList[Stmt]
