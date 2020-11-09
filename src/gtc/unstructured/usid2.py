@@ -26,6 +26,7 @@ class Connectivity(Node):
     has_skip_values: Bool
 
 
+# TODO(anstaf): explain why we do not need dtype here
 class Field(Node):
     name: Str
 
@@ -64,6 +65,7 @@ class BinaryOp(Expr):
     right: Expr
 
 
+# TODO(till): discuss it with Hannes (primary, secondary)
 class NeighborReduce(Expr):
     op: ReduceOperator
     dtype: Str

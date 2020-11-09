@@ -18,10 +18,13 @@
 from toolz.functoolz import compose
 
 from gtc.unstructured import gtir_to_usid2, py_to_gtir2, usid2_codegen
+from gtc.unstructured.gtir_passes2 import merge_stencils
 
 
 def _impl(codegen):
-    return compose(codegen, gtir_to_usid2.transform, py_to_gtir2.transform)
+    return compose(
+        codegen, gtir_to_usid2.transform, merge_stencils.transform, py_to_gtir2.transform
+    )
 
 
 naive = _impl(usid2_codegen.naive)

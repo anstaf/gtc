@@ -99,6 +99,7 @@ class _Generator(codegen.TemplatedGenerator):
 
 
 def _impl(backend):
+    # TOOO(anstaf): agree on python style here
     return compose(
         lambda x: codegen.format_source("cpp", x, style="LLVM"),
         lambda x: _Generator.apply(x, backend=backend),
