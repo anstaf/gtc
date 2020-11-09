@@ -44,8 +44,7 @@ class Call(Expr):
 
 class Comprehension(Node):
     target: Union[Name, FrozenList[Name]]
-    # TODO(anstaf): rename to iter_
-    iterable: Expr
+    iter_: Expr
 
 
 class GeneratorExp(Expr):

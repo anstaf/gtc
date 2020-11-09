@@ -67,11 +67,8 @@ class _PrimaryCompositeExtractor(eve.NodeVisitor):
         return self.visit(src.left, **kwargs) | self.visit(src.right, **kwargs)
 
     def visit_Stencil(self, src: gtir2.Stencil):
-        return usid2.Composite(
-            name=src.location.name,
-            items=functools.reduce(
-                lambda acc, e: acc | self.visit(e, primary=src.location.name), src.body, set()
-            ),
+        return functools.reduce(
+            lambda acc, e: acc | self.visit(e, primary=src.location.name), src.body, set()
         )
 
 
@@ -125,10 +122,7 @@ class _SecondaryCompositesExtractor(eve.NodeVisitor):
         return _merge_dicts_of_sets(self.visit(src.left), self.visit(src.right))
 
     def visit_Stencil(self, src: gtir2.Stencil):
-        return tuple(
-            usid2.Composite(name=name, items=items)
-            for name, items in _merge_dicts_of_sets(*(self.visit(e) for e in src.body)).items()
-        )
+        return _merge_dicts_of_sets(*(self.visit(e) for e in src.body)).items()
 
 
 _extract_secondary_composites = _SecondaryCompositesExtractor().visit
@@ -163,8 +157,11 @@ class _Visitor(eve.NodeVisitor):
     def visit_Stencil(self, src: gtir2.Stencil):
         return usid2.Kernel(
             location_type=_loc2str(src.location.location_type),
-            primary=_extract_primary_composite(src),
-            secondaries=_extract_secondary_composites(src),
+            primary=usid2.Composite(name=src.location.name, items=_extract_primary_composite(src)),
+            secondaries=tuple(
+                usid2.Composite(name=name, items=items)
+                for name, items in _extract_secondary_composites(src)
+            ),
             body=tuple(self.visit(e) for e in src.body),
         )
 

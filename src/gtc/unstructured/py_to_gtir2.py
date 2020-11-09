@@ -140,7 +140,7 @@ class _Visitor(eve.NodeVisitor):
         assert isinstance(target, gtscript_ast2.Name)
         secondary = gtir2.SecondaryLocation(
             name=target.name,
-            connectivity=self.visit(generator.iterable, tbl=tbl, location=location),
+            connectivity=self.visit(generator.iter_, tbl=tbl, location=location),
             primary=location.name,
         )
         body = self.visit(generator_exp.elt, tbl=tbl, location=secondary)
@@ -258,37 +258,36 @@ class _Visitor(eve.NodeVisitor):
         body, temporaries = functools.reduce(folder, src.body, ((), ()))
         return gtir2.Stencil(loop_order=loop_order, location=location, body=body), temporaries
 
-    def visit_Function(self, src: gtscript_ast2.Function, fun_params):
-        connectivity_params = tuple(
-            p for p in fun_params if _is_conncetivity_annotation(p.annotation)
-        )
-        connectivity_type_to_name = dict((p.annotation, p.name) for p in connectivity_params)
-        if len(connectivity_params) > len(connectivity_type_to_name):
-            raise RuntimeError(
-                "the types of the conncetivities within computation should be all different"
-            )
-        connectivities = tuple(_extract_connectivity(p) for p in connectivity_params)
-        args = tuple(
-            _extract_arg(p, connectivity_type_to_name)
-            for p in fun_params
-            if not _is_conncetivity_annotation(p.annotation)
-        )
-        assert all(isinstance(s, gtscript_ast2.With) for s in src.body)
-        tbl = {e.name: e for e in connectivities + args}
 
-        def folder(acc, stmt):
-            stencil, temporaries = self.visit(stmt, tbl={**tbl, **{t.name: t for t in acc[1]}})
-            return acc[0] + (stencil,), acc[1] + temporaries
-
-        stencils, temporaries = functools.reduce(folder, src.body, ((), ()))
-        return gtir2.Computation(
-            name=src.name,
-            connectivities=connectivities,
-            args=args,
-            temporaries=temporaries,
-            stencils=stencils,
+def _transform(src: gtscript_ast2.Function, fun_params):
+    connectivity_params = tuple(p for p in fun_params if _is_conncetivity_annotation(p.annotation))
+    connectivity_type_to_name = dict((p.annotation, p.name) for p in connectivity_params)
+    if len(connectivity_params) > len(connectivity_type_to_name):
+        raise RuntimeError(
+            "the types of the conncetivities within computation should be all different"
         )
+    connectivities = tuple(_extract_connectivity(p) for p in connectivity_params)
+    args = tuple(
+        _extract_arg(p, connectivity_type_to_name)
+        for p in fun_params
+        if not _is_conncetivity_annotation(p.annotation)
+    )
+    assert all(isinstance(s, gtscript_ast2.With) for s in src.body)
+    tbl = {e.name: e for e in connectivities + args}
+
+    def folder(acc, stmt):
+        stencil, temporaries = _Visitor().visit(stmt, tbl={**tbl, **{t.name: t for t in acc[1]}})
+        return acc[0] + (stencil,), acc[1] + temporaries
+
+    stencils, temporaries = functools.reduce(folder, src.body, ((), ()))
+    return gtir2.Computation(
+        name=src.name,
+        connectivities=connectivities,
+        args=args,
+        temporaries=temporaries,
+        stencils=stencils,
+    )
 
 
 def transform(src):
-    return _Visitor().visit(py_to_gtscript2.transform(src), fun_params=_extract_params(src))
+    return _transform(py_to_gtscript2.transform(src), _extract_params(src))

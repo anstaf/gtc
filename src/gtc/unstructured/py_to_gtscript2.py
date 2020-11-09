@@ -81,7 +81,7 @@ class _Visitor(ast.NodeVisitor):
 
     def visit_comprehension(self, src: ast.comprehension):
         return gtscript_ast2.Comprehension(
-            target=self.visit(src.target), iterable=self.visit(src.iter)
+            target=self.visit(src.target), iter_=self.visit(src.iter)
         )
 
     def visit_Assign(self, src: ast.Assign):
